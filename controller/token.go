@@ -108,8 +108,8 @@ func GetTokenStatus(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"object":          "credit_summary",
-		"total_granted":   token.RemainQuota,
-		"total_used":      0, // not supported currently
+		"total_granted":   token.RemainQuota + token.UsedQuota,
+		"total_used":      token.UsedQuota,
 		"total_available": token.RemainQuota,
 		"expires_at":      expiredAt * 1000,
 	})

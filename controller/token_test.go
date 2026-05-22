@@ -42,27 +42,35 @@ type tokenKeyResponse struct {
 	Key string `json:"key"`
 }
 
+type tokenStatusResponse struct {
+	Object         string `json:"object"`
+	TotalGranted   int    `json:"total_granted"`
+	TotalUsed      int    `json:"total_used"`
+	TotalAvailable int    `json:"total_available"`
+	ExpiresAt      int64  `json:"expires_at"`
+}
+
 type sqliteColumnInfo struct {
 	Name string `gorm:"column:name"`
 	Type string `gorm:"column:type"`
 }
 
 type legacyToken struct {
-	Id                 int            `gorm:"primaryKey"`
-	UserId             int            `gorm:"index"`
-	Key                string         `gorm:"column:key;type:char(48);uniqueIndex"`
-	Status             int            `gorm:"default:1"`
-	Name               string         `gorm:"index"`
-	CreatedTime        int64          `gorm:"bigint"`
-	AccessedTime       int64          `gorm:"bigint"`
-	ExpiredTime        int64          `gorm:"bigint;default:-1"`
-	RemainQuota        int            `gorm:"default:0"`
+	Id                 int    `gorm:"primaryKey"`
+	UserId             int    `gorm:"index"`
+	Key                string `gorm:"column:key;type:char(48);uniqueIndex"`
+	Status             int    `gorm:"default:1"`
+	Name               string `gorm:"index"`
+	CreatedTime        int64  `gorm:"bigint"`
+	AccessedTime       int64  `gorm:"bigint"`
+	ExpiredTime        int64  `gorm:"bigint;default:-1"`
+	RemainQuota        int    `gorm:"default:0"`
 	UnlimitedQuota     bool
 	ModelLimitsEnabled bool
-	ModelLimits        string         `gorm:"type:text"`
-	AllowIps           *string        `gorm:"default:''"`
-	UsedQuota          int            `gorm:"default:0"`
-	Group              string         `gorm:"column:group;default:''"`
+	ModelLimits        string  `gorm:"type:text"`
+	AllowIps           *string `gorm:"default:''"`
+	UsedQuota          int     `gorm:"default:0"`
+	Group              string  `gorm:"column:group;default:''"`
 	CrossGroupRetry    bool
 	DeletedAt          gorm.DeletedAt `gorm:"index"`
 }
@@ -467,6 +475,46 @@ func TestGetTokenMasksKeyInResponse(t *testing.T) {
 	}
 	if strings.Contains(recorder.Body.String(), token.Key) {
 		t.Fatalf("detail response leaked raw token key: %s", recorder.Body.String())
+	}
+}
+
+func TestGetTokenStatusReturnsActualQuotaSummary(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	token := seedToken(t, db, 1, "status-token", "status1234token5678")
+	if err := db.Model(&model.Token{}).Where("id = ?", token.Id).Updates(map[string]any{
+		"remain_quota": 640,
+		"used_quota":   360,
+		"expired_time": int64(123),
+	}).Error; err != nil {
+		t.Fatalf("failed to update token quota fields: %v", err)
+	}
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/token/status", nil, 1)
+	ctx.Set("token_id", token.Id)
+	GetTokenStatus(ctx)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200 response, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	var response tokenStatusResponse
+	if err := common.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to decode token status response: %v", err)
+	}
+	if response.Object != "credit_summary" {
+		t.Fatalf("expected credit_summary object, got %q", response.Object)
+	}
+	if response.TotalGranted != 1000 {
+		t.Fatalf("expected total_granted 1000, got %d", response.TotalGranted)
+	}
+	if response.TotalUsed != 360 {
+		t.Fatalf("expected total_used 360, got %d", response.TotalUsed)
+	}
+	if response.TotalAvailable != 640 {
+		t.Fatalf("expected total_available 640, got %d", response.TotalAvailable)
+	}
+	if response.ExpiresAt != 123000 {
+		t.Fatalf("expected expires_at 123000, got %d", response.ExpiresAt)
 	}
 }
 

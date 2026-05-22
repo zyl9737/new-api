@@ -22,6 +22,11 @@ import (
 // as an idempotent no-op rather than a real failure.
 var errSettleAlreadyApplied = errors.New("task settlement already applied (CAS no-op)")
 
+// errRefundAlreadyApplied is returned by refundTaskQuotaInTransaction when the
+// refund CAS predicate matches zero rows, meaning another worker already
+// refunded or otherwise reconciled this task's pre-consumed quota.
+var errRefundAlreadyApplied = errors.New("task refund already applied (CAS no-op)")
+
 // LogTaskConsumption 记录任务消费日志和统计信息（仅记录，不涉及实际扣费）。
 // 实际扣费已由 BillingSession（PreConsumeBilling + SettleBilling）完成。
 func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
@@ -162,31 +167,41 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 	if quota == 0 {
 		return
 	}
+	updatedAt := common.GetTimestamp()
 
-	// 1. 退还资金来源（钱包或订阅）
-	if err := taskAdjustFunding(task, -quota); err != nil {
-		logger.LogWarn(ctx, fmt.Sprintf("退还资金来源失败 task %s: %s", task.TaskID, err.Error()))
+	if err := refundTaskQuotaInTransaction(task, quota, updatedAt); err != nil {
+		if errors.Is(err, errRefundAlreadyApplied) {
+			logger.LogInfo(ctx, fmt.Sprintf("RefundTaskQuota: refund skipped (already applied) for task %s", task.TaskID))
+			return
+		}
+		logger.LogWarn(ctx, fmt.Sprintf("RefundTaskQuota: refund transaction failed for task %s: %s", task.TaskID, err.Error()))
 		return
 	}
 
-	// 2. 退还令牌额度
 	taskAdjustTokenQuota(ctx, task, -quota)
 
-	// 3. 记录日志
 	other := taskBillingOther(task)
 	other["task_id"] = task.TaskID
 	other["reason"] = reason
 	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
-		UserId:    task.UserId,
-		LogType:   model.LogTypeRefund,
-		Content:   "",
-		ChannelId: task.ChannelId,
-		ModelName: taskModelName(task),
-		Quota:     quota,
-		TokenId:   task.PrivateData.TokenId,
-		Group:     task.Group,
-		Other:     other,
+		UserId:     task.UserId,
+		LogType:    model.LogTypeRefund,
+		Content:    "",
+		ChannelId:  task.ChannelId,
+		ModelName:  taskModelName(task),
+		Quota:      quota,
+		QuotaDelta: -quota,
+		TokenId:    task.PrivateData.TokenId,
+		Group:      task.Group,
+		Other:      other,
 	})
+	if !taskIsSubscription(task) {
+		if err := model.InvalidateUserCache(task.UserId); err != nil {
+			logger.LogWarn(ctx, fmt.Sprintf("RefundTaskQuota: invalidate user cache failed for task %s: %s", task.TaskID, err.Error()))
+		}
+	}
+	task.Quota = 0
+	task.UpdatedAt = updatedAt
 }
 
 func adjustFundingTx(tx *gorm.DB, task *model.Task, delta int, updatedAt int64) error {
@@ -221,6 +236,42 @@ func adjustFundingTx(tx *gorm.DB, task *model.Task, delta int, updatedAt int64) 
 		Update("quota", gorm.Expr("quota + ?", -delta)).Error
 }
 
+func adjustUsageStatsTx(tx *gorm.DB, task *model.Task, quotaDelta int) error {
+	if quotaDelta == 0 {
+		return nil
+	}
+	if err := tx.Model(&model.User{}).Where("id = ?", task.UserId).
+		Update("used_quota", gorm.Expr("used_quota + ?", quotaDelta)).Error; err != nil {
+		return err
+	}
+	if task.ChannelId > 0 {
+		if err := tx.Model(&model.Channel{}).Where("id = ?", task.ChannelId).
+			Update("used_quota", gorm.Expr("used_quota + ?", quotaDelta)).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func refundTaskQuotaInTransaction(task *model.Task, refundedQuota int, updatedAt int64) error {
+	return model.DB.Transaction(func(tx *gorm.DB) error {
+		persistResult := tx.Model(&model.Task{}).
+			Where("id = ? AND quota = ?", task.ID, refundedQuota).
+			Updates(map[string]any{"quota": 0, "updated_at": updatedAt})
+		if persistResult.Error != nil {
+			return persistResult.Error
+		}
+		if persistResult.RowsAffected == 0 {
+			return errRefundAlreadyApplied
+		}
+
+		if err := adjustFundingTx(tx, task, -refundedQuota, updatedAt); err != nil {
+			return err
+		}
+		return adjustUsageStatsTx(tx, task, -refundedQuota)
+	})
+}
+
 func settleTaskQuotaInTransaction(task *model.Task, preConsumedQuota int, actualQuota int, quotaDelta int, updatedAt int64) error {
 	return model.DB.Transaction(func(tx *gorm.DB) error {
 		persistResult := tx.Model(&model.Task{}).
@@ -250,15 +301,8 @@ func settleTaskQuotaInTransaction(task *model.Task, preConsumedQuota int, actual
 			// For async tasks, the request was already counted at submit time via
 			// LogTaskConsumption → UpdateUserUsedQuotaAndRequestCount; settle only
 			// reconciles used_quota to the actual cost.
-			if err := tx.Model(&model.User{}).Where("id = ?", task.UserId).
-				Update("used_quota", gorm.Expr("used_quota + ?", quotaDelta)).Error; err != nil {
+			if err := adjustUsageStatsTx(tx, task, quotaDelta); err != nil {
 				return err
-			}
-			if task.ChannelId > 0 {
-				if err := tx.Model(&model.Channel{}).Where("id = ?", task.ChannelId).
-					Update("used_quota", gorm.Expr("used_quota + ?", quotaDelta)).Error; err != nil {
-					return err
-				}
 			}
 		}
 		return nil
@@ -301,15 +345,16 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	other["pre_consumed_quota"] = preConsumedQuota
 	other["actual_quota"] = actualQuota
 	logParams := model.RecordTaskBillingLogParams{
-		UserId:    task.UserId,
-		LogType:   logType,
-		Content:   reason,
-		ChannelId: task.ChannelId,
-		ModelName: taskModelName(task),
-		Quota:     logQuota,
-		TokenId:   task.PrivateData.TokenId,
-		Group:     task.Group,
-		Other:     other,
+		UserId:     task.UserId,
+		LogType:    logType,
+		Content:    reason,
+		ChannelId:  task.ChannelId,
+		ModelName:  taskModelName(task),
+		Quota:      logQuota,
+		QuotaDelta: quotaDelta,
+		TokenId:    task.PrivateData.TokenId,
+		Group:      task.Group,
+		Other:      other,
 	}
 
 	// Persist the task row, funding adjustment, and usage stats in one DB

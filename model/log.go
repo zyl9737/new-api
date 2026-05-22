@@ -253,15 +253,16 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 }
 
 type RecordTaskBillingLogParams struct {
-	UserId    int
-	LogType   int
-	Content   string
-	ChannelId int
-	ModelName string
-	Quota     int
-	TokenId   int
-	Group     string
-	Other     map[string]interface{}
+	UserId     int
+	LogType    int
+	Content    string
+	ChannelId  int
+	ModelName  string
+	Quota      int
+	QuotaDelta int // signed delta for quota_data: positive=charge, negative=refund
+	TokenId    int
+	Group      string
+	Other      map[string]interface{}
 }
 
 func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
@@ -292,6 +293,11 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 	err := LOG_DB.Create(log).Error
 	if err != nil {
 		common.SysLog("failed to record task billing log: " + err.Error())
+	}
+	if common.DataExportEnabled && params.QuotaDelta != 0 {
+		gopool.Go(func() {
+			LogQuotaDataQuotaDelta(params.UserId, username, params.ModelName, params.QuotaDelta, common.GetTimestamp())
+		})
 	}
 }
 

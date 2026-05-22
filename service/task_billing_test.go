@@ -41,6 +41,7 @@ func TestMain(m *testing.M) {
 		&model.User{},
 		&model.Token{},
 		&model.Log{},
+		&model.QuotaData{},
 		&model.Channel{},
 		&model.TopUp{},
 		&model.UserSubscription{},
@@ -62,9 +63,13 @@ func truncate(t *testing.T) {
 		model.DB.Exec("DELETE FROM users")
 		model.DB.Exec("DELETE FROM tokens")
 		model.DB.Exec("DELETE FROM logs")
+		model.DB.Exec("DELETE FROM quota_data")
 		model.DB.Exec("DELETE FROM channels")
 		model.DB.Exec("DELETE FROM top_ups")
 		model.DB.Exec("DELETE FROM user_subscriptions")
+		model.CacheQuotaDataLock.Lock()
+		model.CacheQuotaData = make(map[string]*model.QuotaData)
+		model.CacheQuotaDataLock.Unlock()
 	})
 }
 
@@ -321,6 +326,82 @@ func TestRefundTaskQuota_NoToken(t *testing.T) {
 	log := getLastLog(t)
 	require.NotNil(t, log)
 	assert.Equal(t, model.LogTypeRefund, log.Type)
+}
+
+func TestRefundTaskQuota_UpdatesUsedQuotaAndPersistsZero(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 5, 5, 5
+	const initQuota, preConsumed = 10000, 1500
+	const tokenRemain = 4000
+	const initUsedQuota = 5000
+
+	seedUser(t, userID, initQuota)
+	setUserUsedQuota(t, userID, initUsedQuota)
+	seedToken(t, tokenID, userID, "sk-refund-used", tokenRemain)
+	seedChannel(t, channelID)
+	setChannelUsedQuota(t, channelID, int64(initUsedQuota))
+
+	task := seedTask(t, userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+
+	RefundTaskQuota(ctx, task, "refund updates used quota")
+
+	assert.Equal(t, initQuota+preConsumed, getUserQuota(t, userID))
+	usedQuota, requestCount := getUserUsedQuotaAndRequestCount(t, userID)
+	assert.Equal(t, initUsedQuota-preConsumed, usedQuota)
+	assert.Equal(t, 0, requestCount)
+	assert.Equal(t, int64(initUsedQuota-preConsumed), getChannelUsedQuota(t, channelID))
+	assert.Equal(t, 0, task.Quota)
+
+	var fetched model.Task
+	require.NoError(t, model.DB.First(&fetched, task.ID).Error)
+	assert.Equal(t, 0, fetched.Quota)
+}
+
+func TestRefundTaskQuota_CASGuard_IdempotentSkip(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 6, 6, 6
+	const initQuota, preConsumed = 10000, 2000
+	const tokenRemain = 3000
+
+	seedUser(t, userID, initQuota)
+	seedToken(t, tokenID, userID, "sk-refund-cas", tokenRemain)
+	seedChannel(t, channelID)
+
+	task := seedTask(t, userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+	staleTask := *task
+
+	RefundTaskQuota(ctx, task, "first refund")
+	RefundTaskQuota(ctx, &staleTask, "duplicate refund")
+
+	assert.Equal(t, initQuota+preConsumed, getUserQuota(t, userID))
+	assert.Equal(t, tokenRemain+preConsumed, getTokenRemainQuota(t, tokenID))
+	assert.Equal(t, int64(1), countLogs(t))
+
+	var fetched model.Task
+	require.NoError(t, model.DB.First(&fetched, task.ID).Error)
+	assert.Equal(t, 0, fetched.Quota)
+}
+
+func TestLogQuotaDataQuotaDelta_DoesNotIncrementCount(t *testing.T) {
+	truncate(t)
+
+	const userID = 7
+	const createdAt int64 = 1710001234
+
+	model.LogQuotaData(userID, "test_user", "test-model", 120, createdAt, 30)
+	model.LogQuotaDataQuotaDelta(userID, "test_user", "test-model", -20, createdAt)
+	model.SaveQuotaDataCache()
+
+	rows, err := model.GetQuotaDataByUserId(userID, 0, createdAt-(createdAt%3600)+3600)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, 1, rows[0].Count)
+	assert.Equal(t, 100, rows[0].Quota)
+	assert.Equal(t, 30, rows[0].TokenUsed)
 }
 
 // ===========================================================================
