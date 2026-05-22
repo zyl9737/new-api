@@ -28,15 +28,15 @@ type PerformanceSetting struct {
 
 // 默认配置
 var performanceSetting = PerformanceSetting{
-	DiskCacheEnabled:     false,
-	DiskCacheThresholdMB: 10,   // 超过 10MB 使用磁盘缓存
-	DiskCacheMaxSizeMB:   1024, // 最大 1GB 磁盘缓存
-	DiskCachePath:        "",   // 空表示使用系统临时目录
+	DiskCacheEnabled:     common.GetEnvOrDefaultBool("DISK_CACHE_ENABLED", false),
+	DiskCacheThresholdMB: common.GetEnvOrDefault("DISK_CACHE_THRESHOLD_MB", 10),   // 超过 10MB 使用磁盘缓存
+	DiskCacheMaxSizeMB:   common.GetEnvOrDefault("DISK_CACHE_MAX_SIZE_MB", 1024), // 最大 1GB 磁盘缓存
+	DiskCachePath:        common.GetEnvOrDefaultString("DISK_CACHE_PATH", ""),   // 空表示使用系统临时目录
 
-	MonitorEnabled:         true,
-	MonitorCPUThreshold:    90,
-	MonitorMemoryThreshold: 90,
-	MonitorDiskThreshold:   95,
+	MonitorEnabled:         common.GetEnvOrDefaultBool("PERF_MONITOR_ENABLED", true),
+	MonitorCPUThreshold:    common.GetEnvOrDefault("PERF_MONITOR_CPU_THRESHOLD", 90),
+	MonitorMemoryThreshold: common.GetEnvOrDefault("PERF_MONITOR_MEMORY_THRESHOLD", 90),
+	MonitorDiskThreshold:   common.GetEnvOrDefault("PERF_MONITOR_DISK_THRESHOLD", 95),
 }
 
 func init() {

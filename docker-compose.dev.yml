@@ -30,6 +30,11 @@ services:
       - SQL_DSN=postgresql://root:123456@postgres:5432/new-api
       - REDIS_CONN_STRING=redis://redis
       - TZ=Asia/Shanghai
+      - MAX_REQUEST_BODY_MB=256
+      - DISK_CACHE_ENABLED=true
+      - DISK_CACHE_THRESHOLD_MB=10
+      - DISK_CACHE_MAX_SIZE_MB=2048
+      - DISK_CACHE_PATH=/data/cache
       - BATCH_UPDATE_ENABLED=true
     depends_on:
       redis:
