@@ -12,4 +12,8 @@ docs
 /web/default/dist
 /web/classic/node_modules
 /web/classic/dist
+/data
+/logs
+/tmp
+/nginx/ssl
 !THIRD-PARTY-LICENSES.md

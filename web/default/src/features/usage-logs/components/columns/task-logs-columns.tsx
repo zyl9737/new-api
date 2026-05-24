@@ -35,6 +35,8 @@ import {
   type AudioClip,
 } from '../dialogs/audio-preview-dialog'
 import { FailReasonDialog } from '../dialogs/fail-reason-dialog'
+import { TaskLogDetailDialog } from '../dialogs/task-log-detail-dialog'
+import { VideoPreviewDialog } from '../dialogs/video-preview-dialog'
 import { useUsageLogsContext } from '../usage-logs-provider'
 import {
   createDurationColumn,
@@ -171,25 +173,38 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('Task ID')} />
       ),
-      cell: ({ row }) => {
+      cell: function TaskIdCell({ row }) {
         const log = row.original
         const taskId = row.getValue('task_id') as string
+        const [detailOpen, setDetailOpen] = useState(false)
         if (!taskId) {
           return <span className='text-muted-foreground/60 text-xs'>-</span>
         }
         return (
-          <div className='flex max-w-[170px] flex-col gap-0.5'>
-            <StatusBadge
-              label={taskId}
-              autoColor={taskId}
-              size='sm'
-              showDot={false}
-              className='border-border/60 bg-muted/30 max-w-full truncate rounded-md border px-1.5 py-0.5 font-mono'
+          <>
+            <button
+              type='button'
+              className='group flex max-w-[170px] flex-col gap-0.5 text-left'
+              onClick={() => setDetailOpen(true)}
+              title={t('Click to view full details')}
+            >
+              <StatusBadge
+                label={taskId}
+                autoColor={taskId}
+                size='sm'
+                showDot={false}
+                className='border-border/60 bg-muted/30 max-w-full truncate rounded-md border px-1.5 py-0.5 font-mono group-hover:underline'
+              />
+              <span className='text-muted-foreground/60 truncate text-[11px]'>
+                {t(log.platform)} · {t(taskActionMapper.getLabel(log.action))}
+              </span>
+            </button>
+            <TaskLogDetailDialog
+              log={log}
+              open={detailOpen}
+              onOpenChange={setDetailOpen}
             />
-            <span className='text-muted-foreground/60 truncate text-[11px]'>
-              {t(log.platform)} · {t(taskActionMapper.getLabel(log.action))}
-            </span>
-          </div>
+          </>
         )
       },
       meta: { label: t('Task ID'), mobileTitle: true },
@@ -228,9 +243,10 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
       ),
       cell: function DetailsCell({ row }) {
         const log = row.original
-        const failReason = row.getValue('fail_reason') as string
+        const failReason = (row.getValue('fail_reason') as string) ?? ''
         const status = log.status
         const [dialogOpen, setDialogOpen] = useState(false)
+        const [videoOpen, setVideoOpen] = useState(false)
 
         const isSunoSuccess =
           log.platform === 'suno' && status === TASK_STATUS.SUCCESS
@@ -255,19 +271,37 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
           log.action === TASK_ACTIONS.REFERENCE_GENERATE ||
           log.action === TASK_ACTIONS.REMIX_GENERATE
         const isSuccess = status === TASK_STATUS.SUCCESS
-        const isUrl = failReason?.startsWith('http')
+        const resultUrl = (log.result_url || '').trim()
+        const hasResultUrl =
+          /^https?:\/\//.test(resultUrl) || resultUrl.startsWith('data:')
+        const hasLegacyUrl = /^https?:\/\//.test(failReason.trim())
+        const legacyUrl = failReason.trim()
+        let directPreviewUrl = ''
+        if (hasResultUrl) {
+          directPreviewUrl = resultUrl
+        } else if (hasLegacyUrl) {
+          directPreviewUrl = legacyUrl
+        }
 
-        if (isSuccess && isVideoTask && isUrl) {
-          const videoUrl = `/v1/videos/${log.task_id}/content`
+        if (isSuccess && isVideoTask) {
+          const videoUrl =
+            directPreviewUrl || `/v1/videos/${log.task_id}/content`
           return (
-            <a
-              href={videoUrl}
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-foreground text-xs hover:underline'
-            >
-              {t('Click to preview video')}
-            </a>
+            <>
+              <button
+                type='button'
+                className='text-foreground text-left text-xs hover:underline'
+                onClick={() => setVideoOpen(true)}
+              >
+                {t('Click to preview video')}
+              </button>
+              <VideoPreviewDialog
+                open={videoOpen}
+                onOpenChange={setVideoOpen}
+                videoUrl={videoUrl}
+                taskId={log.task_id}
+              />
+            </>
           )
         }
 
