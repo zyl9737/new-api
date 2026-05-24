@@ -325,9 +325,19 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		taskResult.Status = model.TaskStatusSuccess
 		taskResult.Progress = "100%"
 		taskResult.Url = resTask.Content.VideoURL
-		// 解析 usage 信息用于按倍率计费
-		taskResult.CompletionTokens = resTask.Usage.CompletionTokens
-		taskResult.TotalTokens = resTask.Usage.TotalTokens
+		// 解析 usage 信息用于按倍率计费。
+		// 对视频任务，completion_tokens 是主要计费依据；当某一字段缺失时，
+		// 使用另一字段兜底，避免回调/轮询字段差异导致 token=0。
+		completionTokens := resTask.Usage.CompletionTokens
+		totalTokens := resTask.Usage.TotalTokens
+		if completionTokens <= 0 && totalTokens > 0 {
+			completionTokens = totalTokens
+		}
+		if totalTokens <= 0 && completionTokens > 0 {
+			totalTokens = completionTokens
+		}
+		taskResult.CompletionTokens = completionTokens
+		taskResult.TotalTokens = totalTokens
 	case "failed":
 		taskResult.Status = model.TaskStatusFailure
 		taskResult.Progress = "100%"

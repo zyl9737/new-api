@@ -567,7 +567,7 @@ func SettleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 	}
 	// 2. 回退到 token 重算 — see effectiveTokenCount.
 	if totalTokens := effectiveTokenCount(taskResult); totalTokens > 0 {
-		RecalculateTaskQuotaByTokens(ctx, task, totalTokens)
+		RecalculateTaskQuotaByTaskResult(ctx, task, taskResult)
 		return
 	}
 	// 3. 无调整，保持预扣额度

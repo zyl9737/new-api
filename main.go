@@ -2,13 +2,16 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -204,9 +207,38 @@ func main() {
 	// Log startup success message
 	common.LogStartupSuccess(startTime, port)
 
-	err = server.Run(":" + port)
-	if err != nil {
+	httpServer := &http.Server{
+		Addr:    ":" + port,
+		Handler: server,
+	}
+
+	shutdownSignal := make(chan os.Signal, 1)
+	signal.Notify(shutdownSignal, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(shutdownSignal)
+
+	go func() {
+		sig := <-shutdownSignal
+		common.SysLog(fmt.Sprintf("received signal %s, shutting down", sig.String()))
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		if shutdownErr := httpServer.Shutdown(ctx); shutdownErr != nil {
+			common.SysError(fmt.Sprintf("http server shutdown failed: %v", shutdownErr))
+		}
+	}()
+
+	err = httpServer.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
 		common.FatalLog("failed to start HTTP server: " + err.Error())
+		return
+	}
+
+	if common.BatchUpdateEnabled {
+		common.SysLog("flushing batch updates before exit")
+		model.FlushBatchUpdates()
+	}
+	if common.DataExportEnabled {
+		common.SysLog("flushing quota_data cache before exit")
+		model.SaveQuotaDataCache()
 	}
 }
 

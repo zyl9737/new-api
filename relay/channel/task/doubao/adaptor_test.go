@@ -12,6 +12,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -125,4 +126,54 @@ func TestEstimateBilling_OpenAIPath(t *testing.T) {
 	a := &TaskAdaptor{}
 	// Should not panic; result doesn't matter for this regression test
 	_ = a.EstimateBilling(c, info)
+}
+
+func TestParseTaskResult_UsageFallback(t *testing.T) {
+	a := &TaskAdaptor{}
+	cases := []struct {
+		name           string
+		usageJSON      string
+		wantCompletion int
+		wantTotal      int
+	}{
+		{
+			name:           "both present",
+			usageJSON:      `{"completion_tokens":216900,"total_tokens":216900}`,
+			wantCompletion: 216900,
+			wantTotal:      216900,
+		},
+		{
+			name:           "only total present",
+			usageJSON:      `{"total_tokens":216900}`,
+			wantCompletion: 216900,
+			wantTotal:      216900,
+		},
+		{
+			name:           "only completion present",
+			usageJSON:      `{"completion_tokens":216900}`,
+			wantCompletion: 216900,
+			wantTotal:      216900,
+		},
+		{
+			name:           "none present",
+			usageJSON:      `{}`,
+			wantCompletion: 0,
+			wantTotal:      0,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			body := []byte(`{
+				"id":"task_1",
+				"status":"succeeded",
+				"content":{"video_url":"https://example.com/v.mp4"},
+				"usage":` + c.usageJSON + `
+			}`)
+			got, err := a.ParseTaskResult(body)
+			require.NoError(t, err)
+			require.Equal(t, c.wantCompletion, got.CompletionTokens)
+			require.Equal(t, c.wantTotal, got.TotalTokens)
+		})
+	}
 }

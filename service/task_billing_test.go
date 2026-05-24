@@ -404,6 +404,24 @@ func TestLogQuotaDataQuotaDelta_DoesNotIncrementCount(t *testing.T) {
 	assert.Equal(t, 30, rows[0].TokenUsed)
 }
 
+func TestLogQuotaDataTokenDelta_DoesNotIncrementCountOrQuota(t *testing.T) {
+	truncate(t)
+
+	const userID = 8
+	const createdAt int64 = 1710002234
+
+	model.LogQuotaData(userID, "test_user", "test-model", 120, createdAt, 30)
+	model.LogQuotaDataTokenDelta(userID, "test_user", "test-model", 25, createdAt)
+	model.SaveQuotaDataCache()
+
+	rows, err := model.GetQuotaDataByUserId(userID, 0, createdAt-(createdAt%3600)+3600)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, 1, rows[0].Count)
+	assert.Equal(t, 120, rows[0].Quota)
+	assert.Equal(t, 55, rows[0].TokenUsed)
+}
+
 // ===========================================================================
 // RecalculateTaskQuota tests
 // ===========================================================================
@@ -444,6 +462,30 @@ func TestRecalculate_PositiveDelta(t *testing.T) {
 	require.NotNil(t, log)
 	assert.Equal(t, model.LogTypeConsume, log.Type)
 	assert.Equal(t, actualQuota-preConsumed, log.Quota)
+}
+
+func TestRecalculate_WithTokenUsage_RecordsTokens(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 12, 12, 12
+	const initQuota, preConsumed = 10000, 2000
+	const actualQuota = 3000
+	const tokenRemain = 5000
+
+	seedUser(t, userID, initQuota)
+	seedToken(t, tokenID, userID, "sk-recalc-tokens", tokenRemain)
+	seedChannel(t, channelID)
+
+	task := seedTask(t, userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+
+	recalculateTaskQuotaWithTokenUsage(ctx, task, actualQuota, "token settle", 20, 80)
+
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, model.LogTypeConsume, log.Type)
+	assert.Equal(t, 20, log.PromptTokens)
+	assert.Equal(t, 80, log.CompletionTokens)
 }
 
 func TestRecalculate_NegativeDelta(t *testing.T) {
@@ -1010,6 +1052,60 @@ func TestEffectiveTokenCount(t *testing.T) {
 	t.Run(cases[4].name, func(t *testing.T) {
 		assert.Equal(t, 0, effectiveTokenCount(nil))
 	})
+}
+
+func TestTaskSettleLogTokens(t *testing.T) {
+	cases := []struct {
+		name           string
+		taskResult     *relaycommon.TaskInfo
+		effectiveTotal int
+		wantPrompt     int
+		wantCompletion int
+	}{
+		{
+			name:           "split total when completion is valid",
+			taskResult:     &relaycommon.TaskInfo{TotalTokens: 120, CompletionTokens: 70},
+			effectiveTotal: 120,
+			wantPrompt:     50,
+			wantCompletion: 70,
+		},
+		{
+			name:           "fallback all to completion when completion missing",
+			taskResult:     &relaycommon.TaskInfo{TotalTokens: 120, CompletionTokens: 0},
+			effectiveTotal: 120,
+			wantPrompt:     0,
+			wantCompletion: 120,
+		},
+		{
+			name:           "fallback all to completion when completion exceeds total",
+			taskResult:     &relaycommon.TaskInfo{TotalTokens: 100, CompletionTokens: 130},
+			effectiveTotal: 100,
+			wantPrompt:     0,
+			wantCompletion: 100,
+		},
+		{
+			name:           "nil result still records total as completion",
+			taskResult:     nil,
+			effectiveTotal: 90,
+			wantPrompt:     0,
+			wantCompletion: 90,
+		},
+		{
+			name:           "zero total returns zero tokens",
+			taskResult:     &relaycommon.TaskInfo{TotalTokens: 0, CompletionTokens: 99},
+			effectiveTotal: 0,
+			wantPrompt:     0,
+			wantCompletion: 0,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gotPrompt, gotCompletion := taskSettleLogTokens(c.taskResult, c.effectiveTotal)
+			assert.Equal(t, c.wantPrompt, gotPrompt)
+			assert.Equal(t, c.wantCompletion, gotCompletion)
+		})
+	}
 }
 
 // TestSettle_NilAdaptor_FallsBackToTokens covers the callback-side init-order

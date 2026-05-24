@@ -160,6 +160,26 @@ func taskModelName(task *model.Task) string {
 	return task.Properties.OriginModelName
 }
 
+// taskSettleLogTokens derives prompt/completion tokens for settlement logs.
+// We keep prompt+completion aligned with the billing token basis (effective
+// total tokens) so log aggregation and token-based recalculation stay
+// consistent.
+func taskSettleLogTokens(taskResult *relaycommon.TaskInfo, effectiveTotalTokens int) (promptTokens int, completionTokens int) {
+	if effectiveTotalTokens <= 0 {
+		return 0, 0
+	}
+	if taskResult == nil {
+		return 0, effectiveTotalTokens
+	}
+
+	// When completion_tokens is available and valid, split total into
+	// prompt/output parts. Otherwise treat all effective tokens as output-side.
+	if taskResult.CompletionTokens > 0 && taskResult.CompletionTokens <= effectiveTotalTokens {
+		return effectiveTotalTokens - taskResult.CompletionTokens, taskResult.CompletionTokens
+	}
+	return 0, effectiveTotalTokens
+}
+
 // RefundTaskQuota 统一的任务失败退款逻辑。
 // 当异步任务失败时，将预扣的 quota 退还给用户（支持钱包和订阅），并退还令牌额度。
 func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
@@ -313,6 +333,10 @@ func settleTaskQuotaInTransaction(task *model.Task, preConsumedQuota int, actual
 // actualQuota 是任务完成后的实际应扣额度，与预扣额度 (task.Quota) 做差额结算。
 // reason 用于日志记录（例如 "token重算" 或 "adaptor调整"）。
 func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int, reason string) {
+	recalculateTaskQuotaWithTokenUsage(ctx, task, actualQuota, reason, 0, 0)
+}
+
+func recalculateTaskQuotaWithTokenUsage(ctx context.Context, task *model.Task, actualQuota int, reason string, promptTokens int, completionTokens int) {
 	if actualQuota <= 0 {
 		return
 	}
@@ -345,16 +369,18 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	other["pre_consumed_quota"] = preConsumedQuota
 	other["actual_quota"] = actualQuota
 	logParams := model.RecordTaskBillingLogParams{
-		UserId:     task.UserId,
-		LogType:    logType,
-		Content:    reason,
-		ChannelId:  task.ChannelId,
-		ModelName:  taskModelName(task),
-		Quota:      logQuota,
-		QuotaDelta: quotaDelta,
-		TokenId:    task.PrivateData.TokenId,
-		Group:      task.Group,
-		Other:      other,
+		UserId:           task.UserId,
+		LogType:          logType,
+		Content:          reason,
+		ChannelId:        task.ChannelId,
+		ModelName:        taskModelName(task),
+		Quota:            logQuota,
+		PromptTokens:     promptTokens,
+		CompletionTokens: completionTokens,
+		QuotaDelta:       quotaDelta,
+		TokenId:          task.PrivateData.TokenId,
+		Group:            task.Group,
+		Other:            other,
 	}
 
 	// Persist the task row, funding adjustment, and usage stats in one DB
@@ -398,6 +424,26 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 // （在 task_polling.go:SettleTaskBillingOnComplete 中优先调用），
 // 此函数仅作为倍率计费路径的回退。
 func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTokens int) {
+	RecalculateTaskQuotaByTokensWithUsage(ctx, task, totalTokens, 0, totalTokens)
+}
+
+// RecalculateTaskQuotaByTaskResult 按任务结果中的 token 结算，并将 token
+// 写入第二段任务日志，用于 token 统计与看板展示。
+func RecalculateTaskQuotaByTaskResult(ctx context.Context, task *model.Task, taskResult *relaycommon.TaskInfo) {
+	totalTokens := effectiveTokenCount(taskResult)
+	if totalTokens <= 0 {
+		return
+	}
+	promptTokens, completionTokens := taskSettleLogTokens(taskResult, totalTokens)
+	if completionTokens == 0 {
+		completionTokens = totalTokens
+	}
+	RecalculateTaskQuotaByTokensWithUsage(ctx, task, totalTokens, promptTokens, completionTokens)
+}
+
+// RecalculateTaskQuotaByTokensWithUsage applies token-based quota recalculation
+// with explicit prompt/completion token fields for settlement logs.
+func RecalculateTaskQuotaByTokensWithUsage(ctx context.Context, task *model.Task, totalTokens int, promptTokens int, completionTokens int) {
 	if totalTokens <= 0 {
 		return
 	}
@@ -447,5 +493,5 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 	actualQuota := int(float64(totalTokens) * modelRatio * finalGroupRatio * otherMultiplier)
 
 	reason := fmt.Sprintf("token重算：tokens=%d, modelRatio=%.2f, groupRatio=%.2f, otherMultiplier=%.4f", totalTokens, modelRatio, finalGroupRatio, otherMultiplier)
-	RecalculateTaskQuota(ctx, task, actualQuota, reason)
+	recalculateTaskQuotaWithTokenUsage(ctx, task, actualQuota, reason, promptTokens, completionTokens)
 }

@@ -22,6 +22,7 @@ const (
 
 var batchUpdateStores []map[int]int
 var batchUpdateLocks []sync.Mutex
+var batchUpdateRunLock sync.Mutex
 
 func init() {
 	for i := 0; i < BatchUpdateTypeCount; i++ {
@@ -39,6 +40,12 @@ func InitBatchUpdater() {
 	})
 }
 
+// FlushBatchUpdates force flushes all in-memory batch update deltas to DB.
+// It is intended for graceful shutdown to minimize counter drift.
+func FlushBatchUpdates() {
+	batchUpdate()
+}
+
 func addNewRecord(type_ int, id int, value int) {
 	batchUpdateLocks[type_].Lock()
 	defer batchUpdateLocks[type_].Unlock()
@@ -50,6 +57,9 @@ func addNewRecord(type_ int, id int, value int) {
 }
 
 func batchUpdate() {
+	batchUpdateRunLock.Lock()
+	defer batchUpdateRunLock.Unlock()
+
 	// check if there's any data to update
 	hasData := false
 	for i := 0; i < BatchUpdateTypeCount; i++ {
@@ -72,6 +82,12 @@ func batchUpdate() {
 		store := batchUpdateStores[i]
 		batchUpdateStores[i] = make(map[int]int)
 		batchUpdateLocks[i].Unlock()
+
+		if len(store) == 0 {
+			continue
+		}
+
+		failed := make(map[int]int)
 		// TODO: maybe we can combine updates with same key?
 		for key, value := range store {
 			switch i {
@@ -79,19 +95,40 @@ func batchUpdate() {
 				err := increaseUserQuota(key, value)
 				if err != nil {
 					common.SysLog("failed to batch update user quota: " + err.Error())
+					failed[key] += value
 				}
 			case BatchUpdateTypeTokenQuota:
 				err := increaseTokenQuota(key, value)
 				if err != nil {
 					common.SysLog("failed to batch update token quota: " + err.Error())
+					failed[key] += value
 				}
 			case BatchUpdateTypeUsedQuota:
-				updateUserUsedQuota(key, value)
+				if err := DB.Model(&User{}).Where("id = ?", key).Updates(
+					map[string]interface{}{"used_quota": gorm.Expr("used_quota + ?", value)},
+				).Error; err != nil {
+					common.SysLog("failed to batch update user used quota: " + err.Error())
+					failed[key] += value
+				}
 			case BatchUpdateTypeRequestCount:
-				updateUserRequestCount(key, value)
+				if err := DB.Model(&User{}).Where("id = ?", key).Update("request_count", gorm.Expr("request_count + ?", value)).Error; err != nil {
+					common.SysLog("failed to batch update user request count: " + err.Error())
+					failed[key] += value
+				}
 			case BatchUpdateTypeChannelUsedQuota:
-				updateChannelUsedQuota(key, value)
+				if err := DB.Model(&Channel{}).Where("id = ?", key).Update("used_quota", gorm.Expr("used_quota + ?", value)).Error; err != nil {
+					common.SysLog("failed to batch update channel used quota: " + err.Error())
+					failed[key] += value
+				}
 			}
+		}
+
+		if len(failed) > 0 {
+			batchUpdateLocks[i].Lock()
+			for key, value := range failed {
+				batchUpdateStores[i][key] += value
+			}
+			batchUpdateLocks[i].Unlock()
 		}
 	}
 	common.SysLog("batch update finished")
