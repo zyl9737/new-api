@@ -37,7 +37,6 @@ type ClaudeConvertInfo struct {
 	LastMessagesType string
 	Index            int
 	Usage            *dto.Usage
-	FinishReason     string
 	Done             bool
 
 	ToolCallBaseIndex      int
@@ -120,6 +119,7 @@ type RelayInfo struct {
 	RelayFormat            types.RelayFormat
 	SendResponseCount      int
 	ReceivedResponseCount  int
+	FinishReason           string
 	FinalPreConsumedQuota  int // 最终预消耗的配额
 	// ForcePreConsume 为 true 时禁用 BillingSession 的信任额度旁路，
 	// 强制预扣全额。用于异步任务（视频/音乐生成等），因为请求返回后任务仍在运行，

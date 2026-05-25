@@ -40,6 +40,7 @@ services:
       - TZ=Asia/Shanghai
       - GOMEMLIMIT=1800MiB
       - GOGC=80
+      - STREAMING_TIMEOUT=1200
       - MAX_REQUEST_BODY_MB=256 # 提高请求体上限，避免大参考图/大 JSON 被 413 提前拒绝
       - DISK_CACHE_ENABLED=true # 大请求体优先落盘，减少内存占用峰值
       - DISK_CACHE_THRESHOLD_MB=10 # 超过 10MB 的请求体走磁盘缓存

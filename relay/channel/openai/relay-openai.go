@@ -22,6 +22,37 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+func recordFinishReasonFromStreamItems(info *relaycommon.RelayInfo, streamItems []string) {
+	if info == nil || info.FinishReason != "" || len(streamItems) == 0 {
+		return
+	}
+	for i := len(streamItems) - 1; i >= 0; i-- {
+		item := streamItems[i]
+		if item == "" {
+			continue
+		}
+		var chatChunk dto.ChatCompletionsStreamResponse
+		if err := common.Unmarshal(common.StringToByteSlice(item), &chatChunk); err == nil {
+			for _, choice := range chatChunk.Choices {
+				if choice.FinishReason != nil && *choice.FinishReason != "" {
+					info.FinishReason = *choice.FinishReason
+					return
+				}
+			}
+		}
+
+		var completionChunk dto.CompletionsStreamResponse
+		if err := common.Unmarshal(common.StringToByteSlice(item), &completionChunk); err == nil {
+			for _, choice := range completionChunk.Choices {
+				if choice.FinishReason != "" {
+					info.FinishReason = choice.FinishReason
+					return
+				}
+			}
+		}
+	}
+}
+
 func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, forceFormat bool, thinkToContent bool) error {
 	if data == "" {
 		return nil
@@ -179,6 +210,7 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	if err := processTokens(info.RelayMode, streamItems, &responseTextBuilder, &toolCount); err != nil {
 		logger.LogError(c, "error processing tokens: "+err.Error())
 	}
+	recordFinishReasonFromStreamItems(info, streamItems)
 
 	if !containStreamUsage {
 		usage = service.ResponseText2Usage(c, responseTextBuilder.String(), info.UpstreamModelName, info.GetEstimatePromptTokens())
@@ -232,6 +264,14 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 		if choice.FinishReason == constant.FinishReasonContentFilter {
 			common.SetContextKey(c, constant.ContextKeyAdminRejectReason, "openai_finish_reason=content_filter")
 			break
+		}
+	}
+	if info != nil && info.FinishReason == "" {
+		for _, choice := range simpleResponse.Choices {
+			if strings.TrimSpace(choice.FinishReason) != "" {
+				info.FinishReason = choice.FinishReason
+				break
+			}
 		}
 	}
 

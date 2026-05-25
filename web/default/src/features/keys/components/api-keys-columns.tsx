@@ -142,17 +142,28 @@ export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
       ),
       cell: ({ row }) => {
         const apiKey = row.original
+        const used = apiKey.used_quota
         if (apiKey.unlimited_quota) {
           return (
-            <StatusBadge
-              label={t('Unlimited')}
-              variant='neutral'
-              copyable={false}
-            />
+            <Tooltip>
+              <TooltipTrigger render={<span className='inline-flex' />}>
+                <StatusBadge
+                  label={t('Unlimited')}
+                  variant='neutral'
+                  copyable={false}
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className='space-y-1 text-xs'>
+                  <div>
+                    {t('Used:')} {formatQuota(used)}
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
           )
         }
 
-        const used = apiKey.used_quota
         const remaining = apiKey.remain_quota
         const total = used + remaining
         const percentage = total > 0 ? (remaining / total) * 100 : 0

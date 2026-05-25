@@ -16,8 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo, useState } from 'react'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { useMemo, useState, type MouseEvent } from 'react'
+import { Check, ChevronsUpDown, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -49,6 +49,7 @@ type ApiKeyGroupComboboxProps = {
   onValueChange: (value: string) => void
   placeholder?: string
   disabled?: boolean
+  allowClear?: boolean
 }
 
 function formatGroupRatio(
@@ -101,11 +102,13 @@ export function ApiKeyGroupCombobox({
   onValueChange,
   placeholder,
   disabled,
+  allowClear = true,
 }: ApiKeyGroupComboboxProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const selectedOption = options.find((option) => option.value === value)
+  const canClear = allowClear && !disabled && !!value
 
   const filteredOptions = useMemo(() => {
     const search = searchValue.trim().toLowerCase()
@@ -124,6 +127,14 @@ export function ApiKeyGroupCombobox({
 
   const handleSelect = (selectedValue: string) => {
     onValueChange(selectedValue)
+    setOpen(false)
+    setSearchValue('')
+  }
+
+  const handleClear = (event: MouseEvent<HTMLSpanElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    onValueChange('')
     setOpen(false)
     setSearchValue('')
   }
@@ -157,7 +168,29 @@ export function ApiKeyGroupCombobox({
             <GroupRatioBadge ratio={selectedOption?.ratio} />
           </span>
         </span>
-        <ChevronsUpDown className='h-4 w-4 shrink-0 opacity-50' />
+        <span className='flex shrink-0 items-center gap-1'>
+          {canClear && (
+            <span
+              role='button'
+              tabIndex={0}
+              onClick={handleClear}
+              className='text-muted-foreground hover:text-foreground rounded p-0.5 transition-colors'
+              aria-label={t('Clear group selection')}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  onValueChange('')
+                  setOpen(false)
+                  setSearchValue('')
+                }
+              }}
+            >
+              <X className='h-3.5 w-3.5' />
+            </span>
+          )}
+          <ChevronsUpDown className='h-4 w-4 opacity-50' />
+        </span>
       </PopoverTrigger>
       <PopoverContent
         className='data-closed:zoom-out-100 data-open:zoom-in-100 data-[side=bottom]:slide-in-from-top-0 data-[side=left]:slide-in-from-right-0 data-[side=right]:slide-in-from-left-0 data-[side=top]:slide-in-from-bottom-0 w-[var(--anchor-width)] overflow-hidden rounded-xl p-0 shadow-lg data-closed:duration-75 data-open:duration-100'

@@ -25,6 +25,8 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
 import { formatQuota, parseQuotaFromDollars } from '@/lib/format'
+import { ROLE } from '@/lib/roles'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -82,8 +84,10 @@ export function UsersMutateDrawer({
   const { t } = useTranslation()
   const isUpdate = !!currentRow
   const { triggerRefresh } = useUsers()
+  const currentUserRole = useAuthStore((state) => state.auth.user?.role ?? 0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [quotaDialogOpen, setQuotaDialogOpen] = useState(false)
+  const canEditUsername = !isUpdate || currentUserRole === ROLE.SUPER_ADMIN
 
   // Fetch groups
   const { data: groupsData } = useQuery({
@@ -204,9 +208,16 @@ export function UsersMutateDrawer({
                         <Input
                           {...field}
                           placeholder={t('Enter username')}
-                          disabled={isUpdate}
+                          disabled={!canEditUsername}
                         />
                       </FormControl>
+                      {isUpdate && !canEditUsername && (
+                        <FormDescription>
+                          {t(
+                            'Only super admin can change username for an existing user'
+                          )}
+                        </FormDescription>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
