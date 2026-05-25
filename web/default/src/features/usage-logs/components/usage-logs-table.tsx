@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import {
@@ -42,7 +42,9 @@ import { useColumnsByCategory } from '../lib/columns'
 import { fetchLogsByCategory } from '../lib/utils'
 import type { LogCategory } from '../types'
 import { CommonLogsFilterBar } from './common-logs-filter-bar'
+import { DetailsDialog } from './dialogs/details-dialog'
 import { TaskLogsFilterBar } from './task-logs-filter-bar'
+import type { UsageLog } from '../data/schema'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
 
@@ -133,6 +135,8 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const logs = data?.items || []
   const columns = useColumnsByCategory(logCategory, isAdmin)
   const isLoadingData = isLoading || (isFetching && !data)
+  const [rowDetailLog, setRowDetailLog] = useState<UsageLog | null>(null)
+  const [rowDetailOpen, setRowDetailOpen] = useState(false)
 
   const table = useReactTable({
     data: logs as Record<string, unknown>[],
@@ -159,9 +163,25 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   }, [pageCount, ensurePageInRange])
 
   const isCommon = logCategory === 'common'
+  const canOpenRowDetail = isCommon
+
+  const shouldIgnoreRowClick = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false
+    return Boolean(
+      target.closest(
+        'button,a,input,select,textarea,[role="button"],[role="link"]'
+      )
+    )
+  }
+
+  const openRowDetail = (log: Record<string, unknown>) => {
+    setRowDetailLog(log as UsageLog)
+    setRowDetailOpen(true)
+  }
 
   return (
-    <DataTablePage
+    <>
+      <DataTablePage
       table={table}
       columns={columns as ColumnDef<Record<string, unknown>>[]}
       isLoading={isLoadingData}
@@ -188,7 +208,20 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
           isCommon && logType != null ? (logTypeRowTint[logType] ?? '') : ''
 
         return (
-          <TableRow key={row.id} className={cn('transition-colors', tintClass)}>
+          <TableRow
+            key={row.id}
+            className={cn(
+              'transition-colors',
+              tintClass,
+              canOpenRowDetail && 'cursor-pointer'
+            )}
+            onClick={(event) => {
+              if (!canOpenRowDetail || shouldIgnoreRowClick(event.target)) {
+                return
+              }
+              openRowDetail(row.original)
+            }}
+          >
             {row.getVisibleCells().map((cell) => (
               <TableCell key={cell.id} className={isCommon ? 'py-2' : 'py-3.5'}>
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -197,6 +230,18 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
           </TableRow>
         )
       }}
-    />
+      />
+      {canOpenRowDetail && rowDetailLog && (
+        <DetailsDialog
+          log={rowDetailLog}
+          isAdmin={isAdmin}
+          open={rowDetailOpen}
+          onOpenChange={(open) => {
+            setRowDetailOpen(open)
+            if (!open) setRowDetailLog(null)
+          }}
+        />
+      )}
+    </>
   )
 }

@@ -32,7 +32,7 @@ export const apiKeyFormSchema = z.object({
   unlimited_quota: z.boolean(),
   model_limits: z.array(z.string()),
   allow_ips: z.string().optional(),
-  group: z.string().optional(),
+  group: z.string().min(1, 'Group is required'),
   cross_group_retry: z.boolean().optional(),
   tokenCount: z.number().min(1).optional(),
 })
@@ -58,7 +58,7 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
 export function getApiKeyFormDefaultValues(): ApiKeyFormValues {
   return {
     ...API_KEY_FORM_DEFAULT_VALUES,
-    // Keep classic behavior: group is optional and can be left empty.
+    // Group will be auto-selected from available user groups when form opens.
     group: DEFAULT_GROUP,
     cross_group_retry: false,
   }

@@ -32,6 +32,7 @@ import { toast } from 'sonner'
 import { getUserModels, getUserGroups } from '@/lib/api'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
 import { cn } from '@/lib/utils'
+import { useStatus } from '@/hooks/use-status'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -121,8 +122,10 @@ export function ApiKeysMutateDrawer({
   const { t } = useTranslation()
   const isUpdate = !!currentRow
   const { triggerRefresh } = useApiKeys()
+  const { status } = useStatus()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
+  const defaultUseAutoGroup = status?.default_use_auto_group === true
 
   // Fetch models
   const { data: modelsData } = useQuery({
@@ -149,6 +152,14 @@ export function ApiKeysMutateDrawer({
     })
   )
 
+  const getPreferredGroup = () => {
+    if (groups.length === 0) return ''
+    if (defaultUseAutoGroup && groups.some((g) => g.value === 'auto')) {
+      return 'auto'
+    }
+    return groups.find((g) => g.value === 'default')?.value ?? groups[0]?.value ?? ''
+  }
+
   const form = useForm<ApiKeyFormValues>({
     resolver: zodResolver(apiKeyFormSchema),
     defaultValues: getApiKeyFormDefaultValues(),
@@ -167,18 +178,23 @@ export function ApiKeysMutateDrawer({
     }
   }, [open, isUpdate, currentRow, form])
 
-  // Correct group after groups load: if the form value is not in available groups, fall back
+  // Keep group valid and non-empty when groups are available.
   useEffect(() => {
     if (groups.length === 0) return
     const currentGroup = form.getValues('group')
-    if (currentGroup && !groups.some((g) => g.value === currentGroup)) {
-      const fallback = groups.find((g) => g.value === 'default')?.value ?? groups[0]?.value ?? ''
-      form.setValue('group', fallback)
-      if (currentGroup === 'auto') {
-        form.setValue('cross_group_retry', false)
-      }
+    const fallback = getPreferredGroup()
+
+    if (!currentGroup) {
+      form.setValue('group', fallback, { shouldValidate: true })
+      form.setValue('cross_group_retry', fallback === 'auto')
+      return
     }
-  }, [groups, form])
+
+    if (!groups.some((g) => g.value === currentGroup)) {
+      form.setValue('group', fallback, { shouldValidate: true })
+      form.setValue('cross_group_retry', fallback === 'auto')
+    }
+  }, [groups, form, defaultUseAutoGroup])
 
   const onSubmit = async (data: ApiKeyFormValues) => {
     setIsSubmitting(true)
@@ -322,15 +338,15 @@ export function ApiKeysMutateDrawer({
                         onValueChange={field.onChange}
                         placeholder={
                           groups.length > 0
-                            ? t('Token group, defaults to user group when empty')
+                            ? t('Select a group')
                             : t('Admin has not configured selectable groups')
                         }
                         disabled={groups.length === 0}
-                        allowClear={groups.length > 0}
+                        allowClear={false}
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('Leave empty to follow your current user group')}
+                      {t('Group is required for creating and updating API keys')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

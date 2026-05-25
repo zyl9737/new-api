@@ -99,10 +99,9 @@ function ModelBadgeContent(props: ModelBadgeProps) {
       copyText={props.modelName}
       size='sm'
       showDot={!provider}
-      autoColor={provider ? undefined : props.modelName}
+      autoColor={props.modelName}
       className={cn(
         'border-border/60 bg-muted/30 rounded-md border px-1.5 py-0.5 font-mono',
-        provider && 'text-foreground',
         props.className
       )}
     >

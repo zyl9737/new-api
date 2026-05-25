@@ -91,6 +91,10 @@ function renderQuotaCompat(rawQuota: number, digits = 4): string {
   return symbol + fixed
 }
 
+function normalizeDimensionLabel(value?: string | null): string {
+  return String(value ?? '').trim()
+}
+
 /**
  * Process and aggregate chart data
  */
@@ -256,7 +260,7 @@ export function processChartData(
   data.forEach((item) => {
     const timestamp = Number(item.created_at)
     const timeKey = formatChartTime(timestamp, timeGranularity)
-    const model = item.model_name || 'Unknown'
+    const model = normalizeDimensionLabel(item.model_name) || otherLabel
     const quota = Number(item.quota) || 0
     const count = Number(item.count) || 0
     const tokens = Number(item.token_used) || 0
@@ -740,6 +744,7 @@ export function processUserChartData(
   themeKey?: string
 ): ProcessedUserChartData {
   const tt: TFunction = t ?? ((x) => x)
+  const unknownLabel = tt('Unknown')
   const { config } = getCurrencyDisplay()
   const quotaPerUnit = config.quotaPerUnit
   const themeUserColors = getThemeChartColors(themeKey)
@@ -792,7 +797,7 @@ export function processUserChartData(
 
   const userQuotaTotal = new Map<string, number>()
   data.forEach((item) => {
-    const username = item.username || 'unknown'
+    const username = normalizeDimensionLabel(item.username) || unknownLabel
     const prev = userQuotaTotal.get(username) || 0
     userQuotaTotal.set(username, prev + (Number(item.quota) || 0))
   })
@@ -825,7 +830,7 @@ export function processUserChartData(
     const ts = Number(item.created_at)
     const timeKey = formatChartTime(ts, timeGranularity)
     allTimePoints.add(timeKey)
-    const user = item.username || 'unknown'
+    const user = normalizeDimensionLabel(item.username) || unknownLabel
     if (!topUserSet.has(user)) return
     if (!timeUserMap.has(timeKey)) timeUserMap.set(timeKey, new Map())
     const map = timeUserMap.get(timeKey)!

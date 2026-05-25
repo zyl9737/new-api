@@ -154,10 +154,29 @@ func taskBillingOther(task *model.Task) map[string]interface{} {
 
 // taskModelName 从 BillingContext 或 Properties 中获取模型名称。
 func taskModelName(task *model.Task) string {
-	if bc := task.PrivateData.BillingContext; bc != nil && bc.OriginModelName != "" {
-		return bc.OriginModelName
+	if bc := task.PrivateData.BillingContext; bc != nil {
+		if name := strings.TrimSpace(bc.OriginModelName); name != "" {
+			return name
+		}
 	}
-	return task.Properties.OriginModelName
+	if name := strings.TrimSpace(task.Properties.OriginModelName); name != "" {
+		return name
+	}
+	if name := strings.TrimSpace(task.Properties.UpstreamModelName); name != "" {
+		return name
+	}
+	action := strings.TrimSpace(task.Action)
+	platform := strings.TrimSpace(string(task.Platform))
+	if action != "" && platform != "" {
+		return platform + ":" + action
+	}
+	if action != "" {
+		return action
+	}
+	if platform != "" {
+		return platform
+	}
+	return "task:unknown"
 }
 
 // taskSettleLogTokens derives prompt/completion tokens for settlement logs.
