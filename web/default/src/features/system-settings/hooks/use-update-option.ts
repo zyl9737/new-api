@@ -24,6 +24,7 @@ import type { UpdateOptionRequest } from '../types'
 
 // Configuration keys that require status refresh
 const STATUS_RELATED_KEYS = [
+  'console_setting.dashboard_overview_enabled',
   'theme.frontend',
   'HeaderNavModules',
   'SidebarModulesAdmin',

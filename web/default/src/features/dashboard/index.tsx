@@ -16,11 +16,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useCallback, useMemo, lazy, Suspense } from 'react'
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  lazy,
+  Suspense,
+} from 'react'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
+import { isDashboardOverviewEnabled } from '@/lib/nav-modules'
 import { ROLE } from '@/lib/roles'
+import { useStatus } from '@/hooks/use-status'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SectionPageLayout } from '@/components/layout'
@@ -36,8 +45,8 @@ import {
 } from './lib'
 import {
   type DashboardSectionId,
-  DASHBOARD_DEFAULT_SECTION,
-  DASHBOARD_SECTION_IDS,
+  getDashboardDefaultSection,
+  getVisibleDashboardSections,
 } from './section-registry'
 import {
   type DashboardChartPreferences,
@@ -152,9 +161,9 @@ export function Dashboard() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const params = route.useParams()
+  const { status } = useStatus()
   const userRole = useAuthStore((state) => state.auth.user?.role)
-  const activeSection = (params.section ??
-    DASHBOARD_DEFAULT_SECTION) as DashboardSectionId
+  const activeSection = params.section as DashboardSectionId
 
   const [modelData, setModelData] = useState<QuotaDataItem[]>([])
   const [dataLoading, setDataLoading] = useState(false)
@@ -188,16 +197,34 @@ export function Dashboard() {
     },
     []
   )
-
-  const meta = SECTION_META[activeSection] ?? SECTION_META.overview
   const isAdmin = Boolean(userRole && userRole >= ROLE.ADMIN)
-  const visibleSections = useMemo(
-    () =>
-      DASHBOARD_SECTION_IDS.filter(
-        (section) => section !== 'overview' && (section !== 'users' || isAdmin)
-      ),
-    [isAdmin]
+  const overviewEnabled = useMemo(
+    () => isDashboardOverviewEnabled(status as Record<string, unknown> | null),
+    [status]
   )
+  const visibleSections = useMemo(
+    () => getVisibleDashboardSections({ isAdmin, overviewEnabled }),
+    [isAdmin, overviewEnabled]
+  )
+  const fallbackSection = useMemo(
+    () => getDashboardDefaultSection({ isAdmin, overviewEnabled }),
+    [isAdmin, overviewEnabled]
+  )
+  const currentSection = visibleSections.includes(activeSection)
+    ? activeSection
+    : fallbackSection
+  const meta = SECTION_META[currentSection] ?? SECTION_META[fallbackSection]
+
+  useEffect(() => {
+    if (currentSection !== activeSection) {
+      void navigate({
+        to: '/dashboard/$section',
+        params: { section: currentSection },
+        replace: true,
+      })
+    }
+  }, [activeSection, currentSection, navigate])
+
   const handleSectionChange = useCallback(
     (section: string) => {
       void navigate({
@@ -208,9 +235,9 @@ export function Dashboard() {
     [navigate]
   )
   const showSectionTabs =
-    activeSection !== 'overview' && visibleSections.length > 1
+    currentSection !== 'overview' && visibleSections.length > 1
   const modelActions =
-    activeSection === 'models' ? (
+    currentSection === 'models' ? (
       <>
         <ModelsChartPreferences
           preferences={chartPreferences}
@@ -232,10 +259,13 @@ export function Dashboard() {
       </SectionPageLayout.Description>
       <SectionPageLayout.Content>
         <div className='space-y-3 sm:space-y-4'>
-          {activeSection !== 'overview' && (
+          {currentSection !== 'overview' && (
             <div className='flex flex-wrap items-center justify-between gap-1.5 sm:gap-2'>
               {showSectionTabs ? (
-                <Tabs value={activeSection} onValueChange={handleSectionChange}>
+                <Tabs
+                  value={currentSection}
+                  onValueChange={handleSectionChange}
+                >
                   <TabsList className='h-auto max-w-full flex-wrap justify-start'>
                     {visibleSections.map((section) => (
                       <TabsTrigger key={section} value={section}>
@@ -254,8 +284,8 @@ export function Dashboard() {
               )}
             </div>
           )}
-          {activeSection === 'overview' && <OverviewDashboard />}
-          {activeSection === 'models' && (
+          {currentSection === 'overview' && <OverviewDashboard />}
+          {currentSection === 'models' && (
             <>
               <FadeIn>
                 <Suspense fallback={<LogStatCardsFallback />}>
@@ -300,7 +330,7 @@ export function Dashboard() {
               </FadeIn>
             </>
           )}
-          {activeSection === 'users' && (
+          {currentSection === 'users' && (
             <FadeIn>
               <Suspense fallback={<ModelChartsFallback />}>
                 <LazyUserCharts />

@@ -20,6 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
  * Column definitions factory
  */
 import type { ColumnDef } from '@tanstack/react-table'
+import { useIsSuperAdmin } from '@/hooks/use-admin'
 import { useCommonLogsColumns } from '../components/columns/common-logs-columns'
 import { useDrawingLogsColumns } from '../components/columns/drawing-logs-columns'
 import { useTaskLogsColumns } from '../components/columns/task-logs-columns'
@@ -34,9 +35,10 @@ export function useColumnsByCategory(
   isAdmin: boolean
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): ColumnDef<any>[] {
+  const isSuperAdmin = useIsSuperAdmin()
   const commonColumns = useCommonLogsColumns(isAdmin)
   const drawingColumns = useDrawingLogsColumns(isAdmin)
-  const taskColumns = useTaskLogsColumns(isAdmin)
+  const taskColumns = useTaskLogsColumns(isAdmin, isSuperAdmin)
 
   switch (logCategory) {
     case 'common':

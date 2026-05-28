@@ -697,13 +697,11 @@ export function DetailsDialog(props: DetailsDialogProps) {
               </DetailSection>
             )}
 
-            {/* Refund details (type=6) */}
-            {isRefund && other && (other.task_id || other.reason) && (
-              <DetailSection label={t('Refund Details')}>
-                {other.task_id && (
-                  <DetailRow label={t('Task ID')} value={other.task_id} mono />
-                )}
-                {other.reason && (
+            {/* Task ID for async task consume (type=2) and refund (type=6) logs */}
+            {other?.task_id && (isRefund || (isConsume && other.is_task)) && (
+              <DetailSection label={isRefund ? t('Refund Details') : t('Task Details')}>
+                <DetailRow label={t('Task ID')} value={other.task_id} mono />
+                {isRefund && other.reason && (
                   <DetailRow label={t('Reason')} value={other.reason} />
                 )}
               </DetailSection>

@@ -49,6 +49,7 @@ type Task struct {
 	TaskID     string                `json:"task_id" gorm:"type:varchar(191);index"` // 第三方id，不一定有/ song id\ Task id
 	Platform   constant.TaskPlatform `json:"platform" gorm:"type:varchar(30);index"` // 平台
 	UserId     int                   `json:"user_id" gorm:"index"`
+	TokenName  string                `json:"token_name,omitempty" gorm:"type:varchar(191);index;default:''"`
 	Group      string                `json:"group" gorm:"type:varchar(50)"` // 修正计费用
 	ChannelId  int                   `json:"channel_id" gorm:"index"`
 	Quota      int                   `json:"quota"`
@@ -195,6 +196,7 @@ type SyncTaskQueryParams struct {
 	Platform       constant.TaskPlatform
 	ChannelID      string
 	TaskID         string
+	TokenName      string
 	UserID         string
 	Action         string
 	Status         string
@@ -252,6 +254,9 @@ func TaskGetAllUserTask(userId int, startIdx int, num int, queryParams SyncTaskQ
 	if queryParams.TaskID != "" {
 		query = query.Where("task_id = ?", queryParams.TaskID)
 	}
+	if queryParams.TokenName != "" {
+		query = query.Where("token_name = ?", queryParams.TokenName)
+	}
 	if queryParams.Action != "" {
 		query = query.Where("action = ?", queryParams.Action)
 	}
@@ -300,6 +305,9 @@ func TaskGetAllTasks(startIdx int, num int, queryParams SyncTaskQueryParams) []*
 	}
 	if queryParams.TaskID != "" {
 		query = query.Where("task_id = ?", queryParams.TaskID)
+	}
+	if queryParams.TokenName != "" {
+		query = query.Where("token_name = ?", queryParams.TokenName)
 	}
 	if queryParams.Action != "" {
 		query = query.Where("action = ?", queryParams.Action)
@@ -499,6 +507,9 @@ func TaskCountAllTasks(queryParams SyncTaskQueryParams) int64 {
 	if queryParams.TaskID != "" {
 		query = query.Where("task_id = ?", queryParams.TaskID)
 	}
+	if queryParams.TokenName != "" {
+		query = query.Where("token_name = ?", queryParams.TokenName)
+	}
 	if queryParams.Action != "" {
 		query = query.Where("action = ?", queryParams.Action)
 	}
@@ -521,6 +532,9 @@ func TaskCountAllUserTask(userId int, queryParams SyncTaskQueryParams) int64 {
 	query := DB.Model(&Task{}).Where("user_id = ?", userId)
 	if queryParams.TaskID != "" {
 		query = query.Where("task_id = ?", queryParams.TaskID)
+	}
+	if queryParams.TokenName != "" {
+		query = query.Where("token_name = ?", queryParams.TokenName)
 	}
 	if queryParams.Action != "" {
 		query = query.Where("action = ?", queryParams.Action)

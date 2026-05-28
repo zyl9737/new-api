@@ -17,8 +17,8 @@ services:
     build:
       context: .
       args:
-        # Low-memory build mode (8G host): limit JS heap and skip classic UI build.
-        BUN_NODE_OPTIONS: --max-old-space-size=1280
+        # Low-memory build mode: limit JS heap to 512MB and skip classic UI build.
+        BUN_NODE_OPTIONS: --max-old-space-size=512
         SKIP_CLASSIC_BUILD: "1"
     image: new-api:local
     container_name: new-api

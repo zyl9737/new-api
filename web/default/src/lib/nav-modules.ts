@@ -24,13 +24,44 @@ const DEFAULTS: Record<string, ModuleAccess> = {
   rankings: { enabled: true, requireAuth: false },
 }
 
+function resolveStatusValue(
+  status: Record<string, unknown> | null,
+  key: string
+): unknown {
+  if (!status) return undefined
+  if (key in status) return status[key]
+
+  const nested = status.data
+  if (nested && typeof nested === 'object' && key in nested) {
+    return (nested as Record<string, unknown>)[key]
+  }
+
+  return undefined
+}
+
+function parseBooleanFlag(raw: unknown, fallback: boolean): boolean {
+  if (typeof raw === 'boolean') return raw
+  if (typeof raw === 'number') return raw !== 0
+  if (typeof raw === 'string') {
+    const normalized = raw.trim().toLowerCase()
+    if (normalized === 'true' || normalized === '1') return true
+    if (normalized === 'false' || normalized === '0') return false
+  }
+  return fallback
+}
+
 function parseAccess(raw: unknown, fallback: ModuleAccess): ModuleAccess {
-  if (typeof raw === 'boolean') return { enabled: raw, requireAuth: fallback.requireAuth }
+  if (typeof raw === 'boolean') {
+    return { enabled: raw, requireAuth: fallback.requireAuth }
+  }
   if (raw && typeof raw === 'object') {
     const r = raw as Record<string, unknown>
     return {
       enabled: typeof r.enabled === 'boolean' ? r.enabled : fallback.enabled,
-      requireAuth: typeof r.requireAuth === 'boolean' ? r.requireAuth : fallback.requireAuth,
+      requireAuth:
+        typeof r.requireAuth === 'boolean'
+          ? r.requireAuth
+          : fallback.requireAuth,
     }
   }
   return { ...fallback }
@@ -43,6 +74,17 @@ function getCachedStatus(): Record<string, unknown> | null {
   } catch {
     return null
   }
+}
+
+function getBooleanStatusSetting(
+  key: string,
+  fallback: boolean,
+  status?: Record<string, unknown> | null
+): boolean {
+  return parseBooleanFlag(
+    resolveStatusValue(status ?? getCachedStatus(), key),
+    fallback
+  )
 }
 
 export function getModuleAccess(module: 'rankings' | 'pricing'): ModuleAccess {
@@ -60,7 +102,16 @@ export function getModuleAccess(module: 'rankings' | 'pricing'): ModuleAccess {
   }
 }
 
-export function isSidebarModuleEnabled(section: string, module: string): boolean {
+export function isDashboardOverviewEnabled(
+  status?: Record<string, unknown> | null
+): boolean {
+  return getBooleanStatusSetting('dashboard_overview_enabled', true, status)
+}
+
+export function isSidebarModuleEnabled(
+  section: string,
+  module: string
+): boolean {
   const status = getCachedStatus()
   if (!status) return true
 
@@ -68,7 +119,10 @@ export function isSidebarModuleEnabled(section: string, module: string): boolean
   if (!raw || String(raw).trim() === '') return true
 
   try {
-    const parsed = JSON.parse(String(raw)) as Record<string, Record<string, boolean>>
+    const parsed = JSON.parse(String(raw)) as Record<
+      string,
+      Record<string, boolean>
+    >
     const sectionConfig = parsed[section]
     if (!sectionConfig) return true
     if (sectionConfig.enabled === false) return false

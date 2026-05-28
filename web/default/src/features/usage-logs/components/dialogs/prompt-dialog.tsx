@@ -33,6 +33,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 interface PromptDialogProps {
   prompt: string
   promptEn?: string
+  description?: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -40,6 +41,7 @@ interface PromptDialogProps {
 export function PromptDialog({
   prompt,
   promptEn,
+  description,
   open,
   onOpenChange,
 }: PromptDialogProps) {
@@ -52,7 +54,8 @@ export function PromptDialog({
         <DialogHeader>
           <DialogTitle>{t('Prompt Details')}</DialogTitle>
           <DialogDescription>
-            {t('View the complete prompt and its English translation')}
+            {description ||
+              t('View the complete prompt and its English translation')}
           </DialogDescription>
         </DialogHeader>
 

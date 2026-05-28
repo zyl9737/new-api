@@ -623,6 +623,8 @@ func RelayTask(c *gin.Context) {
 		task.Quota = result.Quota
 		task.Data = result.TaskData
 		task.Action = relayInfo.Action
+		task.TokenName = c.GetString("token_name")
+		task.Properties.Input = extractTaskPromptInput(c, relayInfo)
 		if insertErr := task.Insert(); insertErr != nil {
 			common.SysError("insert task error: " + insertErr.Error())
 		}

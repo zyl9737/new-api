@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 /* eslint-disable react-refresh/only-export-components */
 import { useState, useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Music } from 'lucide-react'
+import { KeyRound, Music } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatTimestampToDate } from '@/lib/format'
@@ -35,6 +35,7 @@ import {
   type AudioClip,
 } from '../dialogs/audio-preview-dialog'
 import { FailReasonDialog } from '../dialogs/fail-reason-dialog'
+import { PromptDialog } from '../dialogs/prompt-dialog'
 import { TaskLogDetailDialog } from '../dialogs/task-log-detail-dialog'
 import { VideoPreviewDialog } from '../dialogs/video-preview-dialog'
 import { useUsageLogsContext } from '../usage-logs-provider'
@@ -91,7 +92,20 @@ function AudioPreviewCell({ log }: { log: TaskLog }) {
   )
 }
 
-export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
+function isVideoGenerationTask(action: string): boolean {
+  return (
+    action === TASK_ACTIONS.GENERATE ||
+    action === TASK_ACTIONS.TEXT_GENERATE ||
+    action === TASK_ACTIONS.FIRST_TAIL_GENERATE ||
+    action === TASK_ACTIONS.REFERENCE_GENERATE ||
+    action === TASK_ACTIONS.REMIX_GENERATE
+  )
+}
+
+export function useTaskLogsColumns(
+  isAdmin: boolean,
+  isSuperAdmin: boolean
+): ColumnDef<TaskLog>[] {
   const { t } = useTranslation()
   const columns: ColumnDef<TaskLog>[] = [
     {
@@ -166,6 +180,33 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
       meta: { label: t('User'), mobileHidden: true },
     })
   }
+
+  columns.push({
+    accessorKey: 'token_name',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title={t('Token')} />
+    ),
+    cell: function TokenNameCell({ row }) {
+      const { sensitiveVisible } = useUsageLogsContext()
+      const tokenName = row.original.token_name?.trim()
+      if (!tokenName) {
+        return <span className='text-muted-foreground/60 text-xs'>-</span>
+      }
+
+      return (
+        <StatusBadge
+          label={sensitiveVisible ? tokenName : '••••'}
+          icon={KeyRound}
+          copyText={sensitiveVisible ? tokenName : undefined}
+          size='sm'
+          showDot={false}
+          className='border-border/60 bg-muted/30 text-foreground max-w-[150px] overflow-hidden rounded-md border px-1.5 py-0.5 font-mono'
+        />
+      )
+    },
+    meta: { label: t('Token'), mobileHidden: true },
+    size: 140,
+  })
 
   columns.push(
     {
@@ -264,12 +305,7 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
           }
         }
 
-        const isVideoTask =
-          log.action === TASK_ACTIONS.GENERATE ||
-          log.action === TASK_ACTIONS.TEXT_GENERATE ||
-          log.action === TASK_ACTIONS.FIRST_TAIL_GENERATE ||
-          log.action === TASK_ACTIONS.REFERENCE_GENERATE ||
-          log.action === TASK_ACTIONS.REMIX_GENERATE
+        const isVideoTask = isVideoGenerationTask(log.action)
         const isSuccess = status === TASK_STATUS.SUCCESS
         const resultUrl = (log.result_url || '').trim()
         const hasResultUrl =
@@ -334,6 +370,48 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
       maxSize: 220,
     }
   )
+
+  if (isSuperAdmin) {
+    columns.push({
+      id: 'prompt',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('Prompt')} />
+      ),
+      cell: function PromptCell({ row }) {
+        const log = row.original
+        const prompt = log.properties?.input?.trim() || ''
+        const [dialogOpen, setDialogOpen] = useState(false)
+
+        if (!isVideoGenerationTask(log.action) || !prompt) {
+          return <span className='text-muted-foreground/60 text-xs'>-</span>
+        }
+
+        return (
+          <>
+            <button
+              type='button'
+              className='group flex max-w-[220px] items-center text-left text-xs'
+              onClick={() => setDialogOpen(true)}
+              title={t('Click to view full prompt')}
+            >
+              <span className='text-muted-foreground truncate leading-snug group-hover:underline'>
+                {prompt}
+              </span>
+            </button>
+            <PromptDialog
+              prompt={prompt}
+              description={t('View the complete text prompt for this task')}
+              open={dialogOpen}
+              onOpenChange={setDialogOpen}
+            />
+          </>
+        )
+      },
+      meta: { label: t('Prompt'), mobileHidden: true },
+      size: 200,
+      maxSize: 220,
+    })
+  }
 
   return columns
 }

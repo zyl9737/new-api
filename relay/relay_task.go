@@ -337,7 +337,7 @@ func sunoFetchRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *dto.Ta
 			return
 		}
 		for _, task := range taskModels {
-			tasks = append(tasks, TaskModel2Dto(task))
+			tasks = append(tasks, TaskModel2Dto(task, c.GetInt("role") == common.RoleRootUser))
 		}
 	} else {
 		tasks = make([]any, 0)
@@ -365,7 +365,7 @@ func sunoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *dt
 
 	respBody, err = common.Marshal(dto.TaskResponse[any]{
 		Code: "success",
-		Data: TaskModel2Dto(originTask),
+		Data: TaskModel2Dto(originTask, c.GetInt("role") == common.RoleRootUser),
 	})
 	return
 }
@@ -425,7 +425,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	// 通用 TaskDto 格式
 	respBody, err = common.Marshal(dto.TaskResponse[any]{
 		Code: "success",
-		Data: TaskModel2Dto(originTask),
+		Data: TaskModel2Dto(originTask, c.GetInt("role") == common.RoleRootUser),
 	})
 	if err != nil {
 		taskResp = service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
@@ -894,7 +894,11 @@ func mapTaskStatusToSimple(status model.TaskStatus) string {
 	}
 }
 
-func TaskModel2Dto(task *model.Task) *dto.TaskDto {
+func TaskModel2Dto(task *model.Task, includePrompt bool) *dto.TaskDto {
+	properties := task.Properties
+	if !includePrompt {
+		properties.Input = ""
+	}
 	return &dto.TaskDto{
 		ID:         task.ID,
 		CreatedAt:  task.CreatedAt,
@@ -902,6 +906,7 @@ func TaskModel2Dto(task *model.Task) *dto.TaskDto {
 		TaskID:     task.TaskID,
 		Platform:   string(task.Platform),
 		UserId:     task.UserId,
+		TokenName:  task.TokenName,
 		Group:      task.Group,
 		ChannelId:  task.ChannelId,
 		Quota:      task.Quota,
@@ -913,7 +918,7 @@ func TaskModel2Dto(task *model.Task) *dto.TaskDto {
 		StartTime:  task.StartTime,
 		FinishTime: task.FinishTime,
 		Progress:   task.Progress,
-		Properties: task.Properties,
+		Properties: properties,
 		Username:   task.Username,
 		Data:       task.Data,
 	}

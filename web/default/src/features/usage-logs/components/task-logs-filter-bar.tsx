@@ -33,6 +33,7 @@ const route = getRouteApi('/_authenticated/usage-logs/$section')
 
 type TaskLikeLogCategory = Extract<LogCategory, 'drawing' | 'task'>
 type TaskLogsFilters = DrawingLogFilters | TaskLogFilters
+type TaskLogsFilterField = keyof DrawingLogFilters | keyof TaskLogFilters
 
 interface TaskLogsFilterBarProps<TData> {
   table: Table<TData>
@@ -58,6 +59,13 @@ function setFilterValue(
     return { ...filters, mjId: value }
   }
   return { ...filters, taskId: value }
+}
+
+function getTokenValue(filters: TaskLogsFilters): string {
+  if ('token' in filters && typeof filters.token === 'string') {
+    return filters.token
+  }
+  return ''
 }
 
 export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
@@ -93,6 +101,7 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
         : {
             ...baseFilters,
             ...(searchParams.filter ? { taskId: searchParams.filter } : {}),
+            ...(searchParams.token ? { token: searchParams.token } : {}),
           }
 
     setFilters(next)
@@ -102,10 +111,11 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
     searchParams.endTime,
     searchParams.channel,
     searchParams.filter,
+    searchParams.token,
   ])
 
   const handleChange = useCallback(
-    (field: keyof TaskLogsFilters, value: Date | string | undefined) => {
+    (field: TaskLogsFilterField, value: Date | string | undefined) => {
       setFilters((prev) => ({ ...prev, [field]: value }))
     },
     []
@@ -156,12 +166,14 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
   )
 
   const filterValue = getFilterValue(filters, props.logCategory)
+  const tokenValue = getTokenValue(filters)
   const placeholder =
     props.logCategory === 'drawing'
       ? t('Filter by Midjourney task ID')
       : t('Filter by task ID')
   const inputClass = 'w-full sm:w-[180px] lg:w-[200px]'
-  const hasAdditionalFilters = !!filterValue || !!filters.channel
+  const hasAdditionalFilters =
+    !!filterValue || !!tokenValue || !!filters.channel
 
   return (
     <DataTableToolbar
@@ -187,6 +199,16 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
             onKeyDown={handleKeyDown}
             className={inputClass}
           />
+          {props.logCategory === 'task' && (
+            <Input
+              aria-label={t('Token')}
+              placeholder={t('Filter by token name')}
+              value={tokenValue}
+              onChange={(e) => handleChange('token', e.target.value)}
+              onKeyDown={handleKeyDown}
+              className={inputClass}
+            />
+          )}
           {isAdmin && (
             <Input
               placeholder={t('Channel ID')}

@@ -35,11 +35,17 @@ import {
   Settings,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { isDashboardOverviewEnabled } from '@/lib/nav-modules'
+import { useStatus } from '@/hooks/use-status'
 import { WORKSPACE_IDS } from '@/components/layout/lib/workspace-registry'
 import { type SidebarData } from '@/components/layout/types'
 
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
+  const { status } = useStatus()
+  const overviewEnabled = isDashboardOverviewEnabled(
+    status as Record<string, unknown> | null
+  )
 
   return {
     workspaces: [
@@ -71,11 +77,15 @@ export function useSidebarData(): SidebarData {
         id: 'general',
         title: t('General'),
         items: [
-          {
-            title: t('Overview'),
-            url: '/dashboard/overview',
-            icon: Activity,
-          },
+          ...(overviewEnabled
+            ? [
+                {
+                  title: t('Overview'),
+                  url: '/dashboard/overview',
+                  icon: Activity,
+                },
+              ]
+            : []),
           {
             title: t('Dashboard'),
             url: '/dashboard/models',

@@ -3,6 +3,7 @@ package model
 import (
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -30,6 +31,10 @@ func UpsertPerfMetric(metric *PerfMetric) error {
 	if metric == nil || metric.RequestCount == 0 {
 		return nil
 	}
+	generationExpr := "generation_ms + ?"
+	if common.UsingPostgreSQL {
+		generationExpr = "perf_metrics.generation_ms + EXCLUDED.\"generation_ms\""
+	}
 	return DB.Clauses(clause.OnConflict{
 		Columns: []clause.Column{
 			{Name: "model_name"},
@@ -43,7 +48,7 @@ func UpsertPerfMetric(metric *PerfMetric) error {
 			"ttft_sum_ms":      gorm.Expr("ttft_sum_ms + ?", metric.TtftSumMs),
 			"ttft_count":       gorm.Expr("ttft_count + ?", metric.TtftCount),
 			"output_tokens":    gorm.Expr("output_tokens + ?", metric.OutputTokens),
-			"generation_ms":    gorm.Expr("generation_ms + ?", metric.GenerationMs),
+			"generation_ms":    gorm.Expr(generationExpr),
 		}),
 	}).Create(metric).Error
 }

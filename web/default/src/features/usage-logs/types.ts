@@ -67,6 +67,13 @@ export interface DrawingLogFilters extends CommonFilters {
  */
 export interface TaskLogFilters extends CommonFilters {
   taskId?: string
+  token?: string
+}
+
+export interface TaskLogProperties {
+  input?: string
+  upstream_model_name?: string
+  origin_model_name?: string
 }
 
 /**
@@ -236,6 +243,7 @@ export interface TaskLog {
   id: number
   user_id: number
   username?: string
+  token_name?: string
   platform: string // suno, kling, runway, etc.
   task_id: string
   action: string // MUSIC, LYRICS, GENERATE, TEXT_GENERATE, etc.
@@ -247,6 +255,7 @@ export interface TaskLog {
   data?: string // JSON string
   fail_reason?: string
   result_url?: string
+  properties?: TaskLogProperties
   status: string // NOT_START, SUBMITTED, IN_PROGRESS, SUCCESS, FAILURE, QUEUED, UNKNOWN
   other?: string
   created_at?: number
@@ -324,6 +333,7 @@ export interface GetTaskLogsParams {
   page_size?: number
   channel_id?: string
   task_id?: string
+  token_name?: string
   start_timestamp?: number
   end_timestamp?: number
 }

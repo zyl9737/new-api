@@ -51,6 +51,9 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	other := make(map[string]interface{})
 	other["is_task"] = true
 	other["request_path"] = c.Request.URL.Path
+	if info.PublicTaskID != "" {
+		other["task_id"] = info.PublicTaskID
+	}
 	other["model_price"] = info.PriceData.ModelPrice
 	if info.PriceData.ModelRatio > 0 {
 		other["model_ratio"] = info.PriceData.ModelRatio
@@ -208,6 +211,13 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 	}
 	updatedAt := common.GetTimestamp()
 
+	// Flush pending batch updates so the pre-charge is already applied to the
+	// user's quota field before the refund transaction reads it.  Without this,
+	// the refund can read a stale (higher) quota, and the pending batch update
+	// will later subtract the pre-charge again — causing the total
+	// (quota + used_quota) to silently shrink.
+	model.FlushBatchUpdates()
+
 	if err := refundTaskQuotaInTransaction(task, quota, updatedAt); err != nil {
 		if errors.Is(err, errRefundAlreadyApplied) {
 			logger.LogInfo(ctx, fmt.Sprintf("RefundTaskQuota: refund skipped (already applied) for task %s", task.TaskID))
@@ -359,6 +369,11 @@ func recalculateTaskQuotaWithTokenUsage(ctx context.Context, task *model.Task, a
 	if actualQuota <= 0 {
 		return
 	}
+
+	// Flush pending batch updates so the pre-charge is already applied to the
+	// user's quota field before the settlement transaction reads it.
+	model.FlushBatchUpdates()
+
 	preConsumedQuota := task.Quota
 	quotaDelta := actualQuota - preConsumedQuota
 

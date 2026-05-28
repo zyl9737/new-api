@@ -55,7 +55,6 @@ import { toast } from 'sonner'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-import { useHiddenClickUnlock } from '@/hooks/use-hidden-click-unlock'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -400,23 +399,6 @@ export function ChannelMutateDrawer({
     'upstream_model_update_check_enabled'
   )
   const currentSettings = form.watch('settings')
-  const {
-    unlocked: doubaoApiEditUnlocked,
-    handleClick: handleApiConfigSecretClick,
-    reset: resetDoubaoApiUnlock,
-  } = useHiddenClickUnlock({
-    requiredClicks: 10,
-    disabled: currentType !== 45,
-    onUnlock: () => {
-      toast.info(t('Doubao custom API address editing unlocked'))
-    },
-  })
-
-  useEffect(() => {
-    if (!open) {
-      resetDoubaoApiUnlock()
-    }
-  }, [open, resetDoubaoApiUnlock])
 
   // Helper computed values
   const isBatchMode =
@@ -1695,70 +1677,7 @@ export function ChannelMutateDrawer({
                 )}
 
                 {/* VolcEngine (type 45) */}
-                {currentType === 45 && !doubaoApiEditUnlocked && (
-                  <FormField
-                    control={form.control}
-                    name='base_url'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel
-                          className='cursor-pointer select-none'
-                          onClick={handleApiConfigSecretClick}
-                        >
-                          {t('API Base URL *')}
-                        </FormLabel>
-                        <Select
-                          items={[
-                            {
-                              value: 'https://ark.cn-beijing.volces.com',
-                              label: t('https://ark.cn-beijing.volces.com'),
-                            },
-                            {
-                              value: 'https://ark.ap-southeast.bytepluses.com',
-                              label: t(
-                                'https://ark.ap-southeast.bytepluses.com'
-                              ),
-                            },
-                            {
-                              value: 'doubao-coding-plan',
-                              label: t('Doubao Coding Plan'),
-                            },
-                          ]}
-                          onValueChange={field.onChange}
-                          value={
-                            field.value || 'https://ark.cn-beijing.volces.com'
-                          }
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent alignItemWithTrigger={false}>
-                            <SelectGroup>
-                              <SelectItem value='https://ark.cn-beijing.volces.com'>
-                                {t('https://ark.cn-beijing.volces.com')}
-                              </SelectItem>
-                              <SelectItem value='https://ark.ap-southeast.bytepluses.com'>
-                                {t('https://ark.ap-southeast.bytepluses.com')}
-                              </SelectItem>
-                              <SelectItem value='doubao-coding-plan'>
-                                {t('Doubao Coding Plan')}
-                              </SelectItem>
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          {t('Select the API endpoint region')}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {/* VolcEngine (type 45) - Custom API URL (unlocked) */}
-                {currentType === 45 && doubaoApiEditUnlocked && (
+                {currentType === 45 && (
                   <FormField
                     control={form.control}
                     name='base_url'
@@ -1766,15 +1685,25 @@ export function ChannelMutateDrawer({
                       <FormItem>
                         <FormLabel>{t('API Base URL *')}</FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder={t(
-                              'e.g., https://ark.cn-beijing.volces.com'
-                            )}
-                            {...field}
-                          />
+                          <>
+                            <Input
+                              list='volcengine-base-urls'
+                              placeholder={t(
+                                'e.g., https://ark.cn-beijing.volces.com'
+                              )}
+                              {...field}
+                            />
+                            <datalist id='volcengine-base-urls'>
+                              <option value='https://ark.cn-beijing.volces.com' />
+                              <option value='https://ark.ap-southeast.bytepluses.com' />
+                              <option value='doubao-coding-plan' />
+                            </datalist>
+                          </>
                         </FormControl>
                         <FormDescription>
-                          {t('Enter custom API endpoint URL')}
+                          {t(
+                            'Enter custom API endpoint URL or select from presets'
+                          )}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>

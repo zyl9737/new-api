@@ -62,13 +62,34 @@ const dashboardRegistry = createSectionRegistry<
 export const DASHBOARD_SECTION_IDS = dashboardRegistry.sectionIds
 export const DASHBOARD_DEFAULT_SECTION = dashboardRegistry.defaultSection
 
+type DashboardSectionOptions = {
+  isAdmin?: boolean
+  overviewEnabled?: boolean
+}
+
+export function getVisibleDashboardSections(
+  options: DashboardSectionOptions = {}
+) {
+  const { isAdmin = false, overviewEnabled = true } = options
+
+  return DASHBOARD_SECTION_IDS.filter((section) => {
+    if (!overviewEnabled && section === 'overview') return false
+    if (!isAdmin && ADMIN_ONLY_SECTIONS.has(section)) return false
+    return true
+  })
+}
+
+export function getDashboardDefaultSection(
+  options: DashboardSectionOptions = {}
+) {
+  return getVisibleDashboardSections(options)[0] ?? DASHBOARD_DEFAULT_SECTION
+}
+
 export function getDashboardSectionNavItems(
   t: TFunction,
-  options?: { isAdmin?: boolean }
+  options?: DashboardSectionOptions
 ) {
   const all = dashboardRegistry.getSectionNavItems(t)
-  if (options?.isAdmin) return all
-  return all.filter(
-    (_, idx) => !ADMIN_ONLY_SECTIONS.has(DASHBOARD_SECTIONS[idx].id)
-  )
+  const visible = new Set(getVisibleDashboardSections(options))
+  return all.filter((_, idx) => visible.has(DASHBOARD_SECTIONS[idx].id))
 }
