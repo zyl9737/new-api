@@ -136,13 +136,15 @@ const rootElement = document.getElementById('root')!
       .then((s) => {
         if (s?.system_name) {
           apply(s.system_name as string)
-          try {
-            localStorage.setItem('status', JSON.stringify(s))
-          } catch {
-            /* empty */
-          }
         }
         if (s?.logo) applyFaviconToDom(s.logo as string)
+        try {
+          if (s) {
+            localStorage.setItem('status', JSON.stringify(s))
+          }
+        } catch {
+          /* empty */
+        }
       })
       .catch(() => {
         /* empty */

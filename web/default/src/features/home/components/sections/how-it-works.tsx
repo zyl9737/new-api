@@ -26,26 +26,20 @@ export function HowItWorks() {
   const steps = [
     {
       num: '1',
-      title: t('Connect providers'),
-      desc: t(
-        'Add your video channels, map models, and decide which route handles each workflow.'
-      ),
+      title: t('Connect'),
+      desc: t('Add channels and set the route for each workflow.'),
       icon: <Route className='size-6' strokeWidth={1.5} />,
     },
     {
       num: '2',
-      title: t('Launch tasks'),
-      desc: t(
-        'Submit Text to Video, Image to Video, Reference Video, or Remix jobs through one stable API surface.'
-      ),
+      title: t('Generate'),
+      desc: t('Send text, image, reference, or remix jobs through one API.'),
       icon: <Video className='size-6' strokeWidth={1.5} />,
     },
     {
       num: '3',
-      title: t('Track delivery'),
-      desc: t(
-        'Follow task status, preview outputs, and keep usage records ready when something needs attention.'
-      ),
+      title: t('Review'),
+      desc: t('Check status, preview output, and inspect usage when needed.'),
       icon: <ListChecks className='size-6' strokeWidth={1.5} />,
     },
   ]
@@ -58,7 +52,7 @@ export function HowItWorks() {
             {t('How It Works')}
           </p>
           <h2 className='text-2xl font-bold tracking-tight md:text-3xl'>
-            {t('Three steps from request to preview')}
+            {t('From request to delivery')}
           </h2>
         </AnimateInView>
 

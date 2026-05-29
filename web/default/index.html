@@ -2,16 +2,54 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
     <!-- Primary Meta Tags -->
-    <title>New API</title>
-    <meta name="title" content="New API" />
+    <title></title>
+    <meta name="title" content="" />
     <meta
       name="description"
-      content="Unified AI API gateway and admin dashboard."
+      content="Video workflow console and admin dashboard."
     />
+    <script>
+      ;(() => {
+        const fallbackIcon = '/logo.png'
+        let title = ''
+        let icon = fallbackIcon
+
+        try {
+          const rawStatus = window.localStorage.getItem('status')
+          if (rawStatus) {
+            const status = JSON.parse(rawStatus)
+            if (
+              status &&
+              typeof status.system_name === 'string' &&
+              status.system_name.trim()
+            ) {
+              title = status.system_name.trim()
+            }
+            if (status && typeof status.logo === 'string' && status.logo.trim()) {
+              icon = status.logo
+            }
+          }
+        } catch {
+          icon = fallbackIcon
+        }
+
+        if (title) {
+          document.title = title
+          const metaTitle = document.querySelector('meta[name="title"]')
+          if (metaTitle) {
+            metaTitle.setAttribute('content', title)
+          }
+        }
+
+        const link = document.createElement('link')
+        link.rel = 'icon'
+        link.type = 'image/png'
+        link.href = icon
+        document.head.appendChild(link)
+      })()
+    </script>
 
     <meta name="theme-color" content="#fff" />
   </head>

@@ -53,13 +53,11 @@ export function CTA(props: CTAProps) {
       >
         <h2 className='text-2xl leading-tight font-bold tracking-tight md:text-4xl'>
           <span className='bg-gradient-to-r from-blue-400 via-violet-400 to-purple-500 bg-clip-text text-transparent'>
-            {t('Ship your video tool faster')}
+            {t('Start shipping faster')}
           </span>
         </h2>
         <p className='text-muted-foreground/80 mx-auto mt-5 max-w-md text-sm leading-relaxed md:text-base'>
-          {t(
-            'Start with one console for providers, routes, previews, pricing, and task visibility.'
-          )}
+          {t('One console for routes, tasks, and pricing.')}
         </p>
         <div className='mt-8 flex items-center justify-center gap-3'>
           <Button className='group rounded-lg' render={<Link to='/sign-up' />}>

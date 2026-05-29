@@ -51,6 +51,33 @@ export function useUpdateOption() {
 
         // If updating frontend-display-related config, also refresh status
         if (STATUS_RELATED_KEYS.includes(variables.key)) {
+          if (variables.key === 'console_setting.dashboard_overview_enabled') {
+            const nextValue = String(variables.value).trim().toLowerCase() === 'true'
+            queryClient.setQueryData(['status'], (current: unknown) => {
+              if (!current || typeof current !== 'object') {
+                return current
+              }
+              return {
+                ...(current as Record<string, unknown>),
+                dashboard_overview_enabled: nextValue,
+              }
+            })
+            try {
+              const raw = window.localStorage.getItem('status')
+              if (raw) {
+                const parsed = JSON.parse(raw) as Record<string, unknown>
+                window.localStorage.setItem(
+                  'status',
+                  JSON.stringify({
+                    ...parsed,
+                    dashboard_overview_enabled: nextValue,
+                  })
+                )
+              }
+            } catch {
+              /* empty */
+            }
+          }
           queryClient.invalidateQueries({ queryKey: ['status'] })
         }
 

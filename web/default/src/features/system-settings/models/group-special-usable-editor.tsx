@@ -41,16 +41,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { StatusBadge } from '@/components/status-badge'
+import { StatusBadge, type StatusVariant } from '@/components/status-badge'
 
 const OP_ADD = 'add' as const
 const OP_REMOVE = 'remove' as const
 const OP_APPEND = 'append' as const
+const OP_ONLY = 'only' as const
 const sectionCardClassName =
   'relative shadow-sm ring-0 before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:border before:border-border/90'
 const sectionHeaderClassName = 'border-b bg-muted/20'
 
-type OpType = typeof OP_ADD | typeof OP_REMOVE | typeof OP_APPEND
+type OpType = typeof OP_ADD | typeof OP_REMOVE | typeof OP_APPEND | typeof OP_ONLY
 
 type Rule = {
   _id: string
@@ -66,6 +67,7 @@ function uid() {
 }
 
 function parsePrefix(rawKey: string): { op: OpType; groupName: string } {
+  if (rawKey.startsWith('=:')) return { op: OP_ONLY, groupName: rawKey.slice(2) }
   if (rawKey.startsWith('+:')) return { op: OP_ADD, groupName: rawKey.slice(2) }
   if (rawKey.startsWith('-:'))
     return { op: OP_REMOVE, groupName: rawKey.slice(2) }
@@ -73,6 +75,7 @@ function parsePrefix(rawKey: string): { op: OpType; groupName: string } {
 }
 
 function toRawKey(op: OpType, groupName: string): string {
+  if (op === OP_ONLY) return `=:${groupName}`
   if (op === OP_ADD) return `+:${groupName}`
   if (op === OP_REMOVE) return `-:${groupName}`
   return groupName
@@ -125,11 +128,12 @@ function serializeRules(rules: Rule[]): string {
 
 const OP_BADGE_MAP: Record<
   OpType,
-  { variant: 'info' | 'danger' | 'neutral'; label: string }
+  { variant: StatusVariant; label: string }
 > = {
   [OP_ADD]: { variant: 'info', label: 'Add (+:)' },
   [OP_REMOVE]: { variant: 'danger', label: 'Remove (-:)' },
   [OP_APPEND]: { variant: 'neutral', label: 'Append' },
+  [OP_ONLY]: { variant: 'warning', label: 'Only (=:)' },
 }
 
 type GroupSpecialUsableRulesEditorProps = {
@@ -197,6 +201,16 @@ function GroupSection(props: GroupSectionProps) {
                 <Select
                   items={[
                     {
+                      value: OP_ONLY,
+                      label: (
+                        <StatusBadge
+                          label={t(OP_BADGE_MAP[OP_ONLY].label)}
+                          variant={OP_BADGE_MAP[OP_ONLY].variant}
+                          copyable={false}
+                        />
+                      ),
+                    },
+                    {
                       value: OP_ADD,
                       label: (
                         <StatusBadge
@@ -243,6 +257,13 @@ function GroupSection(props: GroupSectionProps) {
                   </SelectTrigger>
                   <SelectContent alignItemWithTrigger={false}>
                     <SelectGroup>
+                      <SelectItem value={OP_ONLY}>
+                        <StatusBadge
+                          label={t(OP_BADGE_MAP[OP_ONLY].label)}
+                          variant={OP_BADGE_MAP[OP_ONLY].variant}
+                          copyable={false}
+                        />
+                      </SelectItem>
                       <SelectItem value={OP_ADD}>
                         <StatusBadge
                           label={t(OP_BADGE_MAP[OP_ADD].label)}
@@ -310,15 +331,15 @@ export function GroupSpecialUsableRulesEditor(
   props: GroupSpecialUsableRulesEditorProps
 ) {
   const { t } = useTranslation()
-  const [rules, setRules] = useState<Rule[]>(() =>
-    flattenRules(safeParseJson(props.value))
-  )
   const [newGroupName, setNewGroupName] = useState('')
+  const rules = useMemo(
+    () => flattenRules(safeParseJson(props.value)),
+    [props.value]
+  )
 
   const { onChange } = props
   const emitChange = useCallback(
     (newRules: Rule[]) => {
-      setRules(newRules)
       onChange(serializeRules(newRules))
     },
     [onChange]
@@ -405,12 +426,15 @@ export function GroupSpecialUsableRulesEditor(
         <CardTitle>{t('Special usable group rules')}</CardTitle>
         <CardDescription>
           {t(
-            'Define per-group rules to add, remove, or append selectable groups for specific user groups.'
+            'Define per-group rules to add, remove, append, or restrict selectable groups for specific user groups.'
           )}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className='space-y-3'>
+          <p className='text-muted-foreground text-sm'>
+            {t('A user\'s own group always stays selectable.')}
+          </p>
           {grouped.length === 0 ? (
             <p className='text-muted-foreground py-4 text-center text-sm'>
               {t('No rules yet. Add a group below to get started.')}

@@ -12,12 +12,26 @@ func GetUserUsableGroups(userGroup string) map[string]string {
 	if userGroup != "" {
 		specialSettings, b := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.Get(userGroup)
 		if b {
+			if hasOnlyUsableGroupRules(specialSettings) {
+				onlyGroups := make(map[string]string)
+				for specialGroup, desc := range specialSettings {
+					if !strings.HasPrefix(specialGroup, "=:") {
+						continue
+					}
+					groupToKeep := strings.TrimPrefix(specialGroup, "=:")
+					onlyGroups[groupToKeep] = desc
+				}
+				groupsCopy = onlyGroups
+			}
+
 			// 处理特殊可用分组
 			for specialGroup, desc := range specialSettings {
 				if strings.HasPrefix(specialGroup, "-:") {
 					// 移除分组
 					groupToRemove := strings.TrimPrefix(specialGroup, "-:")
 					delete(groupsCopy, groupToRemove)
+				} else if strings.HasPrefix(specialGroup, "=:") {
+					continue
 				} else if strings.HasPrefix(specialGroup, "+:") {
 					// 添加分组
 					groupToAdd := strings.TrimPrefix(specialGroup, "+:")
@@ -34,6 +48,15 @@ func GetUserUsableGroups(userGroup string) map[string]string {
 		}
 	}
 	return groupsCopy
+}
+
+func hasOnlyUsableGroupRules(specialSettings map[string]string) bool {
+	for specialGroup := range specialSettings {
+		if strings.HasPrefix(specialGroup, "=:") {
+			return true
+		}
+	}
+	return false
 }
 
 func GroupInUserUsableGroups(userGroup, groupName string) bool {

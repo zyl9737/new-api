@@ -66,10 +66,10 @@ export function Hero(props: HeroProps) {
             className='landing-animate-fade-up mt-5 text-[clamp(2.35rem,6vw,4.5rem)] leading-[1.05] font-bold tracking-tight opacity-0'
             style={{ animationDelay: '80ms' }}
           >
-            {t('Launch video generation')}
+            {t('Video workflows')}
             <br />
             <span className='bg-gradient-to-r from-blue-500 via-violet-500 to-fuchsia-500 bg-clip-text text-transparent'>
-              {t('from one clean workspace')}
+              {t('without the clutter')}
             </span>
           </h1>
           <p
@@ -77,7 +77,7 @@ export function Hero(props: HeroProps) {
             style={{ animationDelay: '160ms' }}
           >
             {t(
-              'Route text-to-video, image-to-video, reference, and remix tasks through your preferred providers with clear status, preview, and cost visibility.'
+              'Route requests, track tasks, and keep pricing visible from one video ops console.'
             )}
           </p>
           <div
@@ -128,9 +128,7 @@ export function Hero(props: HeroProps) {
             className='landing-animate-fade-up text-muted-foreground mt-5 max-w-lg text-sm leading-relaxed opacity-0'
             style={{ animationDelay: '380ms' }}
           >
-            {t(
-              'Built for teams shipping video tools, internal pipelines, and creator workflows.'
-            )}
+            {t('Built for video tools and generation pipelines.')}
           </p>
         </div>
         <div

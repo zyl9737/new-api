@@ -45,8 +45,10 @@ const CONTENT_SECTIONS = [
     build: (settings: ContentSettings) => (
       <DashboardSection
         defaultValues={{
-          'console_setting.dashboard_overview_enabled':
-            settings['console_setting.dashboard_overview_enabled'],
+          console_setting: {
+            dashboard_overview_enabled:
+              settings['console_setting.dashboard_overview_enabled'],
+          },
           DataExportEnabled: settings.DataExportEnabled,
           DataExportInterval: settings.DataExportInterval,
           DataExportDefaultTime: validateDataExportDefaultTime(

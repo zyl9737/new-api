@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ListChecks, Route, Video, WalletCards } from 'lucide-react'
+import { ListChecks, Route, WalletCards } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AnimateInView } from '@/components/animate-in-view'
 
@@ -29,42 +29,25 @@ export function Features(_props: FeaturesProps) {
 
   const features = [
     {
-      title: t('Workflow-ready routes'),
+      title: t('Stable video routes'),
       desc: t(
-        'Use stable submit, polling, and preview endpoints without rebuilding your client every time you swap providers.'
+        'Submit, poll, and preview through one consistent API surface.'
       ),
       icon: <Route className='size-5 text-blue-500' />,
-      items: [
-        '/v1/video/generations',
-        '/v1/videos/{task_id}',
-        '/v1/videos/{task_id}/content',
-      ],
+      items: [t('Submit endpoint'), t('Status endpoint'), t('Preview endpoint')],
     },
     {
-      title: t('Flexible video inputs'),
+      title: t('Status and preview'),
       desc: t(
-        'Handle prompts, images, reference clips, and remix jobs from the same workspace.'
-      ),
-      icon: <Video className='size-5 text-violet-500' />,
-      items: [
-        t('Text to Video'),
-        t('Image to Video'),
-        t('Reference Video'),
-        t('Video Remix'),
-      ],
-    },
-    {
-      title: t('Task visibility'),
-      desc: t(
-        'Keep queued, running, failed, and completed generations traceable with task IDs, logs, and previews.'
+        'Keep task IDs, states, and outputs easy to follow.'
       ),
       icon: <ListChecks className='size-5 text-emerald-500' />,
       items: [t('Queued'), t('Rendering'), t('Preview ready'), t('Task log')],
     },
     {
-      title: t('Cost and channel control'),
+      title: t('Spend control'),
       desc: t(
-        'Manage model pricing, channel ratios, and usage records before video spend gets messy.'
+        'Keep routing, ratios, and usage readable as volume grows.'
       ),
       icon: <WalletCards className='size-5 text-amber-500' />,
       items: [
@@ -83,16 +66,14 @@ export function Features(_props: FeaturesProps) {
             {t('Core Features')}
           </p>
           <h2 className='text-2xl leading-tight font-bold tracking-tight md:text-3xl'>
-            {t('Everything your video workflow needs')}
+            {t('Built for video generation')}
           </h2>
           <p className='text-muted-foreground mt-4 max-w-xl text-sm leading-relaxed md:text-base'>
-            {t(
-              'A compact homepage that speaks to routing, task handling, previews, and spend control instead of generic AI platform messaging.'
-            )}
+            {t('Routes, task status, and spend control in one place.')}
           </p>
         </AnimateInView>
 
-        <div className='grid gap-4 md:grid-cols-2'>
+        <div className='grid gap-4 md:grid-cols-3'>
           {features.map((feature, index) => (
             <AnimateInView
               key={feature.title}

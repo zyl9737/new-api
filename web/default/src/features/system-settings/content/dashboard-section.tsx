@@ -16,9 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect } from 'react'
 import * as z from 'zod'
-import { useForm } from 'react-hook-form'
+import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
@@ -42,12 +41,15 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { SettingsSection } from '../components/settings-section'
+import { useSettingsForm } from '../hooks/use-settings-form'
 import { useUpdateOption } from '../hooks/use-update-option'
 
 const dataDashboardSchema = z.object({
-  'console_setting.dashboard_overview_enabled': z.boolean(),
+  console_setting: z.object({
+    dashboard_overview_enabled: z.boolean(),
+  }),
   DataExportEnabled: z.boolean(),
-  DataExportInterval: z.number().int().min(1).max(1440),
+  DataExportInterval: z.coerce.number().int().min(1).max(1440),
   DataExportDefaultTime: z.enum(['hour', 'day', 'week']),
 })
 
@@ -67,25 +69,29 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
 
-  const form = useForm<DataDashboardFormValues>({
-    resolver: zodResolver(dataDashboardSchema),
-    defaultValues,
-  })
+  const { form, handleSubmit, isSubmitting } =
+    useSettingsForm<DataDashboardFormValues>({
+      resolver: zodResolver(dataDashboardSchema) as Resolver<
+        DataDashboardFormValues,
+        unknown,
+        DataDashboardFormValues
+      >,
+      defaultValues,
+      onSubmit: async (_data, changedFields) => {
+        for (const [key, value] of Object.entries(changedFields)) {
+          if (value === undefined || value === null) continue
 
-  useEffect(() => {
-    form.reset(defaultValues)
-  }, [defaultValues, form])
+          let serialized: string | boolean = value as string | boolean
+          if (typeof value === 'boolean') {
+            serialized = String(value)
+          } else if (typeof value === 'number') {
+            serialized = Number.isFinite(value) ? String(value) : '0'
+          }
 
-  const onSubmit = async (values: DataDashboardFormValues) => {
-    const updates = Object.entries(values).filter(
-      ([key, value]) =>
-        value !== defaultValues[key as keyof DataDashboardFormValues]
-    )
-
-    for (const [key, value] of updates) {
-      await updateOption.mutateAsync({ key, value })
-    }
-  }
+          await updateOption.mutateAsync({ key, value: serialized })
+        }
+      },
+    })
 
   const isEnabled = form.watch('DataExportEnabled')
 
@@ -95,7 +101,7 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
       description={t('Configure experimental data export for the dashboard')}
     >
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-6'>
+        <form onSubmit={handleSubmit} className='space-y-6'>
           <FormField
             control={form.control}
             name='console_setting.dashboard_overview_enabled'
@@ -120,7 +126,7 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
               </FormItem>
             )}
           />
-
+ 
           <FormField
             control={form.control}
             name='DataExportEnabled'
@@ -140,7 +146,7 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
               </FormItem>
             )}
           />
-
+ 
           <div className='grid gap-6 sm:grid-cols-2'>
             <FormField
               control={form.control}
@@ -166,7 +172,7 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
                 </FormItem>
               )}
             />
-
+ 
             <FormField
               control={form.control}
               name='DataExportDefaultTime'
@@ -209,9 +215,14 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
               )}
             />
           </div>
-
-          <Button type='submit' disabled={updateOption.isPending}>
-            {updateOption.isPending ? t('Saving...') : t('Save Changes')}
+ 
+          <Button
+            type='submit'
+            disabled={updateOption.isPending || isSubmitting}
+          >
+            {updateOption.isPending || isSubmitting
+              ? t('Saving...')
+              : t('Save Changes')}
           </Button>
         </form>
       </Form>

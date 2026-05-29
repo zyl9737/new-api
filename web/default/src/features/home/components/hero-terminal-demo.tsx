@@ -22,7 +22,6 @@ import {
   Play,
   Route,
   Sparkles,
-  WalletCards,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -32,19 +31,18 @@ export function HeroTerminalDemo() {
   const workflowModes = [
     t('Text to Video'),
     t('Image to Video'),
-    t('Reference Video'),
     t('Video Remix'),
   ]
 
   const pipeline = [
     {
       icon: <Sparkles className='size-3.5 text-violet-500' />,
-      label: t('Submit request'),
+      label: t('Submit'),
       route: '/v1/video/generations',
     },
     {
       icon: <ListChecks className='size-3.5 text-blue-500' />,
-      label: t('Track status'),
+      label: t('Poll'),
       route: '/v1/videos/{task_id}',
     },
     {
@@ -57,18 +55,13 @@ export function HeroTerminalDemo() {
   const signals = [
     {
       icon: <Route className='size-3.5 text-blue-500' />,
-      title: t('Provider routing'),
+      title: t('Model route'),
       value: 'Kling / Veo / Pika',
     },
     {
       icon: <ListChecks className='size-3.5 text-violet-500' />,
-      title: t('Task log'),
-      value: t('Queued -> Rendering -> Preview ready'),
-    },
-    {
-      icon: <WalletCards className='size-3.5 text-amber-500' />,
-      title: t('Budget guard'),
-      value: t('Usage and pricing stay visible'),
+      title: t('Task state'),
+      value: t('Queued -> Rendering -> Ready'),
     },
   ]
 
@@ -78,15 +71,15 @@ export function HeroTerminalDemo() {
         <div className='border-border/50 flex items-center justify-between border-b px-5 py-4'>
           <div>
             <p className='text-muted-foreground text-[11px] font-semibold tracking-[0.18em] uppercase'>
-              {t('Workflow Preview')}
+              {t('Live request')}
             </p>
             <h3 className='mt-1 text-sm font-semibold'>
-              {t('Video task pipeline')}
+              {t('Video generation')}
             </h3>
           </div>
           <div className='inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400'>
             <CheckCircle2 className='size-3.5' />
-            {t('Preview ready')}
+            {t('Task ready')}
           </div>
         </div>
 
@@ -110,7 +103,7 @@ export function HeroTerminalDemo() {
               <div className='flex items-center justify-between gap-3'>
                 <span className='text-muted-foreground'>"prompt"</span>
                 <span className='text-foreground/80 truncate text-right'>
-                  "neon city, tracking shot"
+                  "night drive, rain"
                 </span>
               </div>
               <div className='flex items-center justify-between gap-3'>
@@ -135,10 +128,10 @@ export function HeroTerminalDemo() {
             </div>
           </div>
 
-          <div className='grid gap-4 lg:grid-cols-[minmax(0,1fr)_200px]'>
+          <div className='grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px]'>
             <div className='border-border/50 bg-muted/20 rounded-2xl border p-4'>
               <p className='text-muted-foreground text-[11px] font-semibold tracking-[0.18em] uppercase'>
-                {t('Task pipeline')}
+                {t('Request flow')}
               </p>
               <div className='mt-4 space-y-3'>
                 {pipeline.map((step, index) => (
