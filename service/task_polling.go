@@ -561,7 +561,16 @@ func SettleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 	// 1. 优先让 adaptor 决定最终额度（adaptor 不可用时跳过这一档，由 token fallback 处理）
 	if adaptor != nil {
 		if actualQuota := adaptor.AdjustBillingOnComplete(task, taskResult); actualQuota > 0 {
-			RecalculateTaskQuota(ctx, task, actualQuota, "adaptor计费调整")
+			totalTokens := effectiveTokenCount(taskResult)
+			promptTokens, completionTokens := taskSettleLogTokens(taskResult, totalTokens)
+			recalculateTaskQuotaWithTokenUsage(
+				ctx,
+				task,
+				actualQuota,
+				"adaptor计费调整",
+				promptTokens,
+				completionTokens,
+			)
 			return
 		}
 	}

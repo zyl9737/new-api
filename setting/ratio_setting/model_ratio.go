@@ -388,8 +388,32 @@ func GetModelPrice(name string, printErr bool) (float64, bool) {
 	return -1, false
 }
 
+const (
+	seedance20LegacyHalfRatio     = 23.0
+	seedance20LegacyBaseRatio     = 46.0
+	seedance20FastLegacyHalfRatio = 18.5
+	seedance20FastLegacyBaseRatio = 37.0
+)
+
+func normalizeLegacySeedanceModelRatios(values map[string]float64) {
+	if ratio, ok := values["doubao-seedance-2-0-260128"]; ok && ratio == seedance20LegacyHalfRatio {
+		values["doubao-seedance-2-0-260128"] = seedance20LegacyBaseRatio
+	}
+	if ratio, ok := values["doubao-seedance-2-0-fast-260128"]; ok && ratio == seedance20FastLegacyHalfRatio {
+		values["doubao-seedance-2-0-fast-260128"] = seedance20FastLegacyBaseRatio
+	}
+}
+
 func UpdateModelRatioByJSONString(jsonStr string) error {
-	return types.LoadFromJsonStringWithCallback(modelRatioMap, jsonStr, InvalidateExposedDataCache)
+	parsed := make(map[string]float64)
+	if err := common.Unmarshal([]byte(jsonStr), &parsed); err != nil {
+		return err
+	}
+	normalizeLegacySeedanceModelRatios(parsed)
+	modelRatioMap.Clear()
+	modelRatioMap.AddAll(parsed)
+	InvalidateExposedDataCache()
+	return nil
 }
 
 // 处理带有思考预算的模型名称，方便统一定价

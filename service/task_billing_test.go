@@ -1411,3 +1411,35 @@ func TestSettle_NonPerCall_AdaptorAdjustWorks(t *testing.T) {
 	require.NotNil(t, log)
 	assert.Equal(t, model.LogTypeRefund, log.Type)
 }
+
+func TestSettle_NonPerCall_AdaptorAdjustLogsTokenUsage(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 35, 35, 35
+	const initQuota, preConsumed = 10000, 5000
+	const adaptorQuota = 3000
+	const tokenRemain = 8000
+	const totalTokens = 151078
+	const completionTokens = 151078
+
+	seedUser(t, userID, initQuota)
+	seedToken(t, tokenID, userID, "sk-adaptor-log-tokens", tokenRemain)
+	seedChannel(t, channelID)
+
+	task := seedTask(t, userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+	adaptor := &mockAdaptor{adjustReturn: adaptorQuota}
+	taskResult := &relaycommon.TaskInfo{
+		Status:           model.TaskStatusSuccess,
+		TotalTokens:      totalTokens,
+		CompletionTokens: completionTokens,
+	}
+
+	SettleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
+
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, model.LogTypeRefund, log.Type)
+	assert.Equal(t, 0, log.PromptTokens)
+	assert.Equal(t, completionTokens, log.CompletionTokens)
+}

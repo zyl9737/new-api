@@ -196,6 +196,7 @@ func loadOptionsFromDatabase() {
 			common.SysLog("failed to update option map: " + err.Error())
 		}
 	}
+	migrateLegacySeedanceTieredPricing()
 }
 
 func SyncOptions(frequency int) {
