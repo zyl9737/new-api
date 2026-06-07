@@ -37,20 +37,30 @@ import { useIsAdmin } from '@/hooks/use-admin'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { DataTablePage } from '@/components/data-table'
-import { DEFAULT_LOGS_DATA, LOG_TYPE_ENUM } from '../constants'
+import {
+  DEFAULT_LOGS_DATA,
+  LOG_TYPE_ALL_VALUE,
+  LOG_TYPE_ENUM,
+} from '../constants'
+import type { UsageLog } from '../data/schema'
 import { useColumnsByCategory } from '../lib/columns'
 import { fetchLogsByCategory } from '../lib/utils'
 import type { LogCategory } from '../types'
 import { CommonLogsFilterBar } from './common-logs-filter-bar'
 import { DetailsDialog } from './dialogs/details-dialog'
 import { TaskLogsFilterBar } from './task-logs-filter-bar'
-import type { UsageLog } from '../data/schema'
+import { UsageLogsMobileList } from './usage-logs-mobile-card'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
 
 const logTypeRowTint: Record<number, string> = {
   [LOG_TYPE_ENUM.ERROR]: 'bg-rose-50/40 dark:bg-rose-950/20',
   [LOG_TYPE_ENUM.REFUND]: 'bg-blue-50/30 dark:bg-blue-950/15',
+}
+
+function deserializeLogTypeFilter(value: unknown): unknown[] {
+  const values = Array.isArray(value) ? value : value ? [value] : []
+  return values.filter((item) => String(item) !== LOG_TYPE_ALL_VALUE)
 }
 
 interface UsageLogsTableProps {
@@ -75,7 +85,12 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     pagination: { defaultPage: 1, defaultPageSize: isMobile ? 20 : 100 },
     globalFilter: { enabled: false },
     columnFilters: [
-      { columnId: 'created_at', searchKey: 'type', type: 'array' as const },
+      {
+        columnId: 'created_at',
+        searchKey: 'type',
+        type: 'array' as const,
+        deserialize: deserializeLogTypeFilter,
+      },
       { columnId: 'model_name', searchKey: 'model', type: 'string' as const },
       { columnId: 'token_name', searchKey: 'token', type: 'string' as const },
       { columnId: 'group', searchKey: 'group', type: 'string' as const },
@@ -154,6 +169,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     manualPagination: true,
+    manualFiltering: true,
     pageCount: Math.ceil((data?.total || 0) / pagination.pageSize),
   })
 
@@ -182,54 +198,67 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   return (
     <>
       <DataTablePage
-      table={table}
-      columns={columns as ColumnDef<Record<string, unknown>>[]}
-      isLoading={isLoadingData}
-      isFetching={isFetching}
-      emptyTitle={t('No Logs Found')}
-      emptyDescription={t(
-        'No usage logs available. Logs will appear here once API calls are made.'
-      )}
-      skeletonKeyPrefix='usage-log-skeleton'
-      tableClassName='max-h-[calc(100dvh-13rem)] overflow-auto sm:max-h-[calc(100dvh-14rem)]'
-      tableHeaderClassName='bg-muted/30 sticky top-0 z-10'
-      toolbar={
-        isCommon ? (
-          <CommonLogsFilterBar table={table} />
-        ) : (
-          <TaskLogsFilterBar table={table} logCategory={logCategory} />
-        )
-      }
-      renderRow={(row) => {
-        const logType = (row.original as Record<string, unknown>).type as
-          | number
-          | undefined
-        const tintClass =
-          isCommon && logType != null ? (logTypeRowTint[logType] ?? '') : ''
+        table={table}
+        columns={columns as ColumnDef<Record<string, unknown>>[]}
+        isLoading={isLoadingData}
+        isFetching={isFetching}
+        emptyTitle={t('No Logs Found')}
+        emptyDescription={t(
+          'No usage logs available. Logs will appear here once API calls are made.'
+        )}
+        skeletonKeyPrefix='usage-log-skeleton'
+        tableClassName={cn(
+          'overflow-x-auto',
+          '[&_[data-slot=table]]:text-[13px] [&_[data-slot=table]_td]:text-[13px] [&_[data-slot=table]_td_*]:text-[13px] [&_[data-slot=table]_th]:text-[13px] [&_[data-slot=table]_th_*]:text-[13px]'
+        )}
+        tableHeaderClassName='bg-muted/30 sticky top-0 z-10'
+        mobile={
+          <UsageLogsMobileList
+            table={table}
+            isLoading={isLoadingData}
+            logCategory={logCategory}
+          />
+        }
+        toolbar={
+          isCommon ? (
+            <CommonLogsFilterBar table={table} />
+          ) : (
+            <TaskLogsFilterBar table={table} logCategory={logCategory} />
+          )
+        }
+        renderRow={(row) => {
+          const logType = (row.original as Record<string, unknown>).type as
+            | number
+            | undefined
+          const tintClass =
+            isCommon && logType != null ? (logTypeRowTint[logType] ?? '') : ''
 
-        return (
-          <TableRow
-            key={row.id}
-            className={cn(
-              'transition-colors',
-              tintClass,
-              canOpenRowDetail && 'cursor-pointer'
-            )}
-            onClick={(event) => {
-              if (!canOpenRowDetail || shouldIgnoreRowClick(event.target)) {
-                return
-              }
-              openRowDetail(row.original)
-            }}
-          >
-            {row.getVisibleCells().map((cell) => (
-              <TableCell key={cell.id} className={isCommon ? 'py-2' : 'py-3.5'}>
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            ))}
-          </TableRow>
-        )
-      }}
+          return (
+            <TableRow
+              key={row.id}
+              className={cn(
+                'transition-colors',
+                tintClass,
+                canOpenRowDetail && 'cursor-pointer'
+              )}
+              onClick={(event) => {
+                if (!canOpenRowDetail || shouldIgnoreRowClick(event.target)) {
+                  return
+                }
+                openRowDetail(row.original)
+              }}
+            >
+              {row.getVisibleCells().map((cell) => (
+                <TableCell
+                  key={cell.id}
+                  className={isCommon ? 'py-2' : 'py-3.5'}
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </TableRow>
+          )
+        }}
       />
       {canOpenRowDetail && rowDetailLog && (
         <DetailsDialog

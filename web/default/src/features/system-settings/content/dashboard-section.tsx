@@ -20,7 +20,6 @@ import * as z from 'zod'
 import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
@@ -40,9 +39,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import {
+  SettingsForm,
+  SettingsSwitchContent,
+  SettingsSwitchItem,
+} from '../components/settings-form-layout'
+import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useSettingsForm } from '../hooks/use-settings-form'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { safeNumberFieldProps } from '../utils/numeric-field'
 
 const dataDashboardSchema = z.object({
   console_setting: z.object({
@@ -69,84 +75,81 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
 
-  const { form, handleSubmit, isSubmitting } =
-    useSettingsForm<DataDashboardFormValues>({
-      resolver: zodResolver(dataDashboardSchema) as Resolver<
-        DataDashboardFormValues,
-        unknown,
-        DataDashboardFormValues
-      >,
-      defaultValues,
-      onSubmit: async (_data, changedFields) => {
-        for (const [key, value] of Object.entries(changedFields)) {
-          if (value === undefined || value === null) continue
+  const { form, handleSubmit } = useSettingsForm<DataDashboardFormValues>({
+    resolver: zodResolver(dataDashboardSchema) as Resolver<
+      DataDashboardFormValues,
+      unknown,
+      DataDashboardFormValues
+    >,
+    defaultValues,
+    onSubmit: async (_data, changedFields) => {
+      for (const [key, value] of Object.entries(changedFields)) {
+        if (value === undefined || value === null) continue
 
-          let serialized: string | boolean = value as string | boolean
-          if (typeof value === 'boolean') {
-            serialized = String(value)
-          } else if (typeof value === 'number') {
-            serialized = Number.isFinite(value) ? String(value) : '0'
-          }
-
-          await updateOption.mutateAsync({ key, value: serialized })
+        let serialized: string | boolean = value as string | boolean
+        if (typeof value === 'boolean') {
+          serialized = String(value)
+        } else if (typeof value === 'number') {
+          serialized = Number.isFinite(value) ? String(value) : '0'
         }
-      },
-    })
+
+        await updateOption.mutateAsync({ key, value: serialized })
+      }
+    },
+  })
 
   const isEnabled = form.watch('DataExportEnabled')
 
   return (
-    <SettingsSection
-      title={t('Data Dashboard')}
-      description={t('Configure experimental data export for the dashboard')}
-    >
+    <SettingsSection title={t('Data Dashboard')}>
       <Form {...form}>
-        <form onSubmit={handleSubmit} className='space-y-6'>
+        <SettingsForm onSubmit={handleSubmit}>
+          <SettingsPageFormActions
+            onSave={handleSubmit}
+            isSaving={updateOption.isPending}
+          />
+
           <FormField
             control={form.control}
             name='console_setting.dashboard_overview_enabled'
             render={({ field }) => (
-              <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
-                <div className='space-y-1'>
-                  <FormLabel className='text-base'>
-                    {t('Show console overview page')}
-                  </FormLabel>
+              <SettingsSwitchItem>
+                <SettingsSwitchContent>
+                  <FormLabel>{t('Show console overview page')}</FormLabel>
                   <FormDescription>
                     {t(
                       'Hide the standalone overview entry and redirect users to the next available dashboard tab.'
                     )}
                   </FormDescription>
-                </div>
+                </SettingsSwitchContent>
                 <FormControl>
                   <Switch
                     checked={field.value}
                     onCheckedChange={field.onChange}
                   />
                 </FormControl>
-              </FormItem>
+              </SettingsSwitchItem>
             )}
           />
- 
+
           <FormField
             control={form.control}
             name='DataExportEnabled'
             render={({ field }) => (
-              <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
-                <div className='space-y-0.5'>
-                  <FormLabel className='text-base'>
-                    {t('Enable Data Dashboard')}
-                  </FormLabel>
-                </div>
+              <SettingsSwitchItem>
+                <SettingsSwitchContent>
+                  <FormLabel>{t('Enable Data Dashboard')}</FormLabel>
+                </SettingsSwitchContent>
                 <FormControl>
                   <Switch
                     checked={field.value}
                     onCheckedChange={field.onChange}
                   />
                 </FormControl>
-              </FormItem>
+              </SettingsSwitchItem>
             )}
           />
- 
+
           <div className='grid gap-6 sm:grid-cols-2'>
             <FormField
               control={form.control}
@@ -160,9 +163,8 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
                       min={1}
                       max={1440}
                       step={1}
+                      {...safeNumberFieldProps(field)}
                       disabled={!isEnabled}
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.target.valueAsNumber)}
                     />
                   </FormControl>
                   <FormDescription>
@@ -172,7 +174,7 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
                 </FormItem>
               )}
             />
- 
+
             <FormField
               control={form.control}
               name='DataExportDefaultTime'
@@ -180,12 +182,10 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
                 <FormItem>
                   <FormLabel>{t('Default time granularity')}</FormLabel>
                   <Select
-                    items={[
-                      ...granularityOptions.map((option) => ({
-                        value: option.value,
-                        label: option.label,
-                      })),
-                    ]}
+                    items={granularityOptions.map((option) => ({
+                      value: option.value,
+                      label: t(option.label),
+                    }))}
                     onValueChange={field.onChange}
                     value={field.value}
                     disabled={!isEnabled}
@@ -199,7 +199,7 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
                       <SelectGroup>
                         {granularityOptions.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
-                            {option.label}
+                            {t(option.label)}
                           </SelectItem>
                         ))}
                       </SelectGroup>
@@ -215,16 +215,7 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
               )}
             />
           </div>
- 
-          <Button
-            type='submit'
-            disabled={updateOption.isPending || isSubmitting}
-          >
-            {updateOption.isPending || isSubmitting
-              ? t('Saving...')
-              : t('Save Changes')}
-          </Button>
-        </form>
+        </SettingsForm>
       </Form>
     </SettingsSection>
   )

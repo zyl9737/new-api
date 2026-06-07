@@ -16,13 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  CheckCircle2,
-  ListChecks,
-  Play,
-  Route,
-  Sparkles,
-} from 'lucide-react'
+import { CheckCircle2, ListChecks, Play, Route, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 export function HeroTerminalDemo() {

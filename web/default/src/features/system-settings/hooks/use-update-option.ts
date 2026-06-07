@@ -79,6 +79,11 @@ export function useUpdateOption() {
             }
           }
           queryClient.invalidateQueries({ queryKey: ['status'] })
+          try {
+            window.localStorage.removeItem('status')
+          } catch {
+            /* empty */
+          }
         }
 
         toast.success(i18next.t('Setting updated successfully'))

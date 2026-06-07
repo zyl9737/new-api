@@ -99,13 +99,14 @@ function ModelBadgeContent(props: ModelBadgeProps) {
       copyText={props.modelName}
       size='sm'
       showDot={!provider}
-      autoColor={props.modelName}
+      autoColor={provider ? undefined : props.modelName}
       className={cn(
-        'border-border/60 bg-muted/30 rounded-md border px-1.5 py-0.5 font-mono',
+        'border-border/60 bg-muted/30 h-6 max-w-full gap-1.5 rounded-md border px-2 [font-family:var(--font-body)]',
+        provider && 'text-foreground',
         props.className
       )}
     >
-      <span className='flex items-center gap-1.5'>
+      <span className='flex max-w-full min-w-0 items-center gap-1.5'>
         {provider && (
           <span
             className='flex size-3.5 shrink-0 items-center justify-center'
@@ -115,7 +116,7 @@ function ModelBadgeContent(props: ModelBadgeProps) {
             {getLobeIcon(provider.icon, 14)}
           </span>
         )}
-        <span>{props.modelName}</span>
+        <span className='truncate'>{props.modelName}</span>
       </span>
     </StatusBadge>
   )
