@@ -23,10 +23,10 @@ services:
     image: new-api:local
     container_name: new-api
     restart: always
-    mem_limit: 3g
-    mem_reservation: 1g
-    cpus: "2.50"
-    pids_limit: 512
+    mem_limit: 2g
+    mem_reservation: 512m
+    cpus: "2.00"
+    pids_limit: 256
     command: --log-dir /app/logs
     expose:
       - "3000"

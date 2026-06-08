@@ -23,4 +23,6 @@ const (
 	// optimize_prompt_options, watermark, 2K/4K size literals, etc.) are
 	// preserved as-is.
 	RelayFormatVolc RelayFormat = "volc"
+	// RelayFormatMediaKit is the native Volc MediaKit async video tool format.
+	RelayFormatMediaKit RelayFormat = "mediakit"
 )

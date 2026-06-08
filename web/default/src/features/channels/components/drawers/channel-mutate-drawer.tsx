@@ -605,11 +605,16 @@ export function ChannelMutateDrawer({
   useEffect(() => {
     if (isEditing) return // Don't auto-set defaults when editing
 
-    // Type 45 (VolcEngine) - set default base_url
-    if (currentType === 45) {
+    // Type 45 / 59 (VolcEngine / VolcMediaKit) - set default base_url
+    if (currentType === 45 || currentType === 59) {
       const currentBaseUrlValue = form.getValues('base_url')
       if (!currentBaseUrlValue || currentBaseUrlValue === '') {
-        form.setValue('base_url', 'https://ark.cn-beijing.volces.com')
+        form.setValue(
+          'base_url',
+          currentType === 59
+            ? 'https://mediakit.cn-beijing.volces.com'
+            : 'https://ark.cn-beijing.volces.com'
+        )
       }
     }
 

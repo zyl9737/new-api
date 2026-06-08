@@ -37,6 +37,29 @@ func TestGetTaskAdaptorVolcAdapter(t *testing.T) {
 	}
 }
 
+func TestGetAdaptorVolcMediaKit(t *testing.T) {
+	apiType, ok := common.ChannelType2APIType(constant.ChannelTypeVolcMediaKit)
+	if !ok {
+		t.Fatalf("ChannelType2APIType(%d) returned ok=false; VolcMediaKit is not registered", constant.ChannelTypeVolcMediaKit)
+	}
+	if apiType != constant.APITypeVolcMediaKit {
+		t.Errorf("expected APITypeVolcMediaKit (%d), got %d", constant.APITypeVolcMediaKit, apiType)
+	}
+
+	adaptor := GetAdaptor(apiType)
+	if adaptor == nil {
+		t.Fatalf("GetAdaptor(APITypeVolcMediaKit) returned nil")
+	}
+}
+
+func TestGetTaskAdaptorVolcMediaKit(t *testing.T) {
+	platform := constant.TaskPlatform("59") // ChannelTypeVolcMediaKit
+	adaptor := GetTaskAdaptor(platform)
+	if adaptor == nil {
+		t.Fatalf("GetTaskAdaptor(%q) returned nil; VolcMediaKit not registered in task adaptor routing", platform)
+	}
+}
+
 // TestGetTaskAdaptorLegacyChannelsStillWork verifies that the legacy channels 45
 // and 54 still resolve task adaptors (they remain in the routing table).
 func TestGetTaskAdaptorLegacyChannelsStillWork(t *testing.T) {

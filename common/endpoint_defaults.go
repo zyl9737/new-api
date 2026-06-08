@@ -27,6 +27,7 @@ var defaultEndpointInfoMap = map[constant.EndpointType]EndpointInfo{
 	constant.EndpointTypeEmbeddings:            {Path: "/v1/embeddings", Method: "POST"},
 	constant.EndpointTypeVolcImage:             {Path: "/api/v3/images/generations", Method: "POST"},
 	constant.EndpointTypeVolcVideo:             {Path: "/api/v3/contents/generations/tasks", Method: "POST"},
+	constant.EndpointTypeMediaKitVideo:         {Path: "/api/v1/tools/enhance-video", Method: "POST"},
 }
 
 // GetDefaultEndpointInfo 返回指定端点类型的默认信息以及是否存在

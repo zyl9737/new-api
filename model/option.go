@@ -193,6 +193,7 @@ func loadOptionsFromDatabase() {
 		}
 	}
 	migrateLegacySeedanceTieredPricing()
+	migrateMediaKitModelPriceDefaults()
 }
 
 func SyncOptions(frequency int) {

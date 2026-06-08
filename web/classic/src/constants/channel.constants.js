@@ -194,6 +194,11 @@ export const CHANNEL_OPTIONS = [
     color: 'blue',
     label: '火山方舟兼容 (Seedream + Seedance)',
   },
+  {
+    value: 59,
+    color: 'blue',
+    label: '火山 MediaKit (超分 + 字幕擦除)',
+  },
 ];
 
 // Channel types that support upstream model list fetching in UI.

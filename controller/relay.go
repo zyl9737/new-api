@@ -21,6 +21,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	"github.com/QuantumNous/new-api/relay"
+	taskmediakit "github.com/QuantumNous/new-api/relay/channel/task/mediakit"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -598,13 +599,17 @@ func RelayTask(c *gin.Context) {
 		task.PrivateData.BillingSource = relayInfo.BillingSource
 		task.PrivateData.SubscriptionId = relayInfo.SubscriptionId
 		task.PrivateData.TokenId = relayInfo.TokenId
+		perCallBilling := common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName) || relayInfo.PriceData.UsePrice
+		if relayInfo.ChannelType == constant.ChannelTypeVolcMediaKit {
+			perCallBilling = false
+		}
 		bc := &model.TaskBillingContext{
 			ModelPrice:      relayInfo.PriceData.ModelPrice,
 			GroupRatio:      relayInfo.PriceData.GroupRatioInfo.GroupRatio,
 			ModelRatio:      relayInfo.PriceData.ModelRatio,
 			OtherRatios:     relayInfo.PriceData.OtherRatios,
 			OriginModelName: relayInfo.OriginModelName,
-			PerCallBilling:  common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName) || relayInfo.PriceData.UsePrice,
+			PerCallBilling:  perCallBilling,
 		}
 		// Persist tiered_expr snapshot for settlement-time re-evaluation.
 		if snap := relayInfo.TieredBillingSnapshot; snap != nil {
@@ -617,6 +622,14 @@ func RelayTask(c *gin.Context) {
 			if relayInfo.ChannelType == constant.ChannelTypeVolcAdapter &&
 				relayInfo.BillingRequestInput != nil && len(relayInfo.BillingRequestInput.Body) > 0 {
 				bc.TieredVolcFlags = extractVolcFlags(relayInfo.BillingRequestInput.Body)
+			}
+		}
+		if relayInfo.ChannelType == constant.ChannelTypeVolcMediaKit {
+			if storage, err := common.GetBodyStorage(c); err == nil {
+				if rawBody, readErr := storage.Bytes(); readErr == nil {
+					bc.MediaKit = taskmediakit.ExtractBillingParams(relayInfo.RequestURLPath, relayInfo.OriginModelName, rawBody)
+				}
+				_, _ = storage.Seek(0, io.SeekStart)
 			}
 		}
 		task.PrivateData.BillingContext = bc

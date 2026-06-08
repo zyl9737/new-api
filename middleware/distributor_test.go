@@ -362,3 +362,50 @@ func TestDistribute_VolcImageRoute_ReqKeyFallback(t *testing.T) {
 		t.Errorf(`expected "high_aes_general_v21_L20" from req_key fallback, got %q`, got)
 	}
 }
+
+func getMediaKitModel(t *testing.T, path string, body []byte) string {
+	t.Helper()
+	c, _ := newDistributorContext(t, body, path)
+	mr, _, err := getModelRequest(c)
+	if err != nil {
+		t.Fatalf("getModelRequest error: %v", err)
+	}
+	return mr.Model
+}
+
+func TestDistribute_MediaKitEnhance_DefaultsToStandardModel(t *testing.T) {
+	setupDistributorTestDB(t)
+
+	got := getMediaKitModel(t, "/api/v1/tools/enhance-video", []byte(`{"video_url":"https://example.com/video.mp4"}`))
+	if got != "volc-mediakit-enhance-video-standard" {
+		t.Fatalf("expected standard MediaKit enhance model, got %q", got)
+	}
+}
+
+func TestDistribute_MediaKitEnhance_ProfessionalModel(t *testing.T) {
+	setupDistributorTestDB(t)
+
+	got := getMediaKitModel(t, "/api/v1/tools/enhance-video", []byte(`{"video_url":"https://example.com/video.mp4","tool_version":"professional"}`))
+	if got != "volc-mediakit-enhance-video-professional" {
+		t.Fatalf("expected professional MediaKit enhance model, got %q", got)
+	}
+}
+
+func TestDistribute_MediaKitTaskFetch_SkipsChannelSelection(t *testing.T) {
+	setupDistributorTestDB(t)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/tasks/task_abc123", nil)
+	c.Set("id", 9001)
+	common.SetContextKey(c, constant.ContextKeyUsingGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenModelLimitEnabled, false)
+
+	distributeMiddleware := Distribute()
+	distributeMiddleware(c)
+
+	if w.Code == http.StatusBadRequest || w.Code == http.StatusServiceUnavailable {
+		t.Fatalf("GET /api/v1/tasks/:id should not trigger channel selection, got status %d", w.Code)
+	}
+}

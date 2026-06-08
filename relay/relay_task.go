@@ -401,6 +401,10 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 		respBody = buildVolcNativeTaskFetchResp(originTask)
 		return
 	}
+	if c.GetString("relay_format") == string(types.RelayFormatMediaKit) {
+		respBody = buildMediaKitTaskFetchResp(originTask)
+		return
+	}
 
 	// OpenAI Video API 格式: 走各 adaptor 的 ConvertToOpenAIVideo
 	if isOpenAIVideoAPI {
@@ -431,6 +435,86 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 		taskResp = service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
 	}
 	return
+}
+
+func buildMediaKitTaskFetchResp(t *model.Task) []byte {
+	if len(t.Data) > 0 {
+		var probe map[string]json.RawMessage
+		if err := common.Unmarshal(t.Data, &probe); err == nil {
+			if _, hasStatus := probe["status"]; hasStatus {
+				if taskIDJSON, err := common.Marshal(t.TaskID); err == nil {
+					probe["task_id"] = json.RawMessage(taskIDJSON)
+				}
+				if patched, err := common.Marshal(probe); err == nil {
+					return patched
+				}
+				return t.Data
+			}
+			if dataRaw, hasData := probe["data"]; hasData {
+				var nested map[string]json.RawMessage
+				if err := common.Unmarshal(dataRaw, &nested); err == nil {
+					if _, hasStatus := nested["status"]; hasStatus {
+						if taskIDJSON, err := common.Marshal(t.TaskID); err == nil {
+							nested["task_id"] = json.RawMessage(taskIDJSON)
+						}
+						if nestedPatched, err := common.Marshal(nested); err == nil {
+							probe["data"] = json.RawMessage(nestedPatched)
+							if patched, err := common.Marshal(probe); err == nil {
+								return patched
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	status := mapTaskStatusToMediaKitStatus(t.Status)
+	resp := map[string]interface{}{
+		"success":    true,
+		"task_id":    t.TaskID,
+		"status":     status,
+		"created_at": t.CreatedAt,
+	}
+	if t.UpdatedAt > 0 {
+		resp["updated_at"] = t.UpdatedAt
+	}
+	if t.FinishTime > 0 {
+		resp["finished_at"] = t.FinishTime
+	}
+	if t.Status == model.TaskStatusSuccess {
+		resp["result"] = map[string]string{
+			"video_url": t.GetResultURL(),
+		}
+	}
+	if t.FailReason != "" {
+		resp["error"] = map[string]string{
+			"message": t.FailReason,
+			"code":    mapFailReasonToErrorCode(t.FailReason),
+		}
+	}
+	body, err := common.Marshal(resp)
+	if err != nil {
+		taskIDJSON, _ := common.Marshal(t.TaskID)
+		statusJSON, _ := common.Marshal(status)
+		return []byte(`{"success":true,"task_id":` + string(taskIDJSON) + `,"status":` + string(statusJSON) + `}`)
+	}
+	return body
+}
+
+func mapTaskStatusToMediaKitStatus(status model.TaskStatus) string {
+	switch status {
+	case model.TaskStatusSuccess:
+		return "success"
+	case model.TaskStatusFailure:
+		return "failed"
+	case model.TaskStatusInProgress:
+		return "running"
+	case model.TaskStatusQueued, model.TaskStatusSubmitted, model.TaskStatusNotStart:
+		return "queued"
+	default:
+		return "queued"
+	}
 }
 
 // buildVolcNativeTaskFetchResp returns the Volc-native ContentGenerationTask JSON

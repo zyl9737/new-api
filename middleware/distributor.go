@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	channelmediakit "github.com/QuantumNous/new-api/relay/channel/mediakit"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -336,6 +337,25 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 			if req != nil {
 				modelRequest.Model = req.Model
 			}
+		}
+	} else if channelmediakit.IsSubmitPath(c.Request.URL.Path) || channelmediakit.IsFetchPath(c.Request.URL.Path) {
+		if c.Request.Method == http.MethodGet {
+			shouldSelectChannel = false
+			c.Set("relay_mode", relayconstant.RelayModeVideoFetchByID)
+		} else if c.Request.Method == http.MethodPost {
+			storage, storageErr := common.GetBodyStorage(c)
+			if storageErr != nil {
+				return nil, false, storageErr
+			}
+			body, bodyErr := storage.Bytes()
+			if bodyErr != nil {
+				return nil, false, bodyErr
+			}
+			modelRequest.Model = channelmediakit.InferModelFromPathAndBody(c.Request.URL.Path, body)
+			if _, seekErr := storage.Seek(0, io.SeekStart); seekErr == nil {
+				c.Request.Body = io.NopCloser(storage)
+			}
+			c.Set("relay_mode", relayconstant.RelayModeVideoSubmit)
 		}
 	} else if strings.HasPrefix(c.Request.URL.Path, "/v1beta/models/") || strings.HasPrefix(c.Request.URL.Path, "/v1/models/") {
 		// Gemini API 路径处理: /v1beta/models/gemini-2.0-flash:generateContent

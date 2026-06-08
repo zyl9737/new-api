@@ -1428,6 +1428,8 @@ func TestSettle_NonPerCall_AdaptorAdjustLogsTokenUsage(t *testing.T) {
 	seedChannel(t, channelID)
 
 	task := seedTask(t, userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+	task.SubmitTime = 100
+	task.FinishTime = 137
 	adaptor := &mockAdaptor{adjustReturn: adaptorQuota}
 	taskResult := &relaycommon.TaskInfo{
 		Status:           model.TaskStatusSuccess,
@@ -1442,4 +1444,5 @@ func TestSettle_NonPerCall_AdaptorAdjustLogsTokenUsage(t *testing.T) {
 	assert.Equal(t, model.LogTypeRefund, log.Type)
 	assert.Equal(t, 0, log.PromptTokens)
 	assert.Equal(t, completionTokens, log.CompletionTokens)
+	assert.Equal(t, 37, log.UseTime)
 }

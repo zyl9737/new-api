@@ -566,6 +566,10 @@ func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Req
 		} else {
 			info = GenRelayInfoVolc(c, request)
 		}
+	case types.RelayFormatMediaKit:
+		info = genBaseRelayInfo(c, nil)
+		info.TaskRelayInfo = &TaskRelayInfo{}
+		info.RelayFormat = types.RelayFormatMediaKit
 	case types.RelayFormatOpenAIRealtime:
 		info = GenRelayInfoWs(c, ws)
 	case types.RelayFormatClaude:

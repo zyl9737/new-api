@@ -563,11 +563,15 @@ func SettleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 		if actualQuota := adaptor.AdjustBillingOnComplete(task, taskResult); actualQuota > 0 {
 			totalTokens := effectiveTokenCount(taskResult)
 			promptTokens, completionTokens := taskSettleLogTokens(taskResult, totalTokens)
+			reason := "adaptor计费调整"
+			if bc := task.PrivateData.BillingContext; bc != nil && strings.TrimSpace(bc.SettlementReason) != "" {
+				reason = bc.SettlementReason
+			}
 			recalculateTaskQuotaWithTokenUsage(
 				ctx,
 				task,
 				actualQuota,
-				"adaptor计费调整",
+				reason,
 				promptTokens,
 				completionTokens,
 			)

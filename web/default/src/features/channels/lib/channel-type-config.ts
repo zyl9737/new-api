@@ -134,6 +134,18 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       baseUrl: 'Default: https://api.replicate.com',
     },
   },
+  59: {
+    id: 59,
+    name: CHANNEL_TYPES[59],
+    icon: 'volcengine',
+    defaultBaseUrl: 'https://mediakit.cn-beijing.volces.com',
+    hints: {
+      baseUrl: 'Default: https://mediakit.cn-beijing.volces.com',
+      key: 'Format: Bearer {MediaKit API Key}',
+      models:
+        'volc-mediakit-enhance-video-standard,volc-mediakit-enhance-video-professional,volc-mediakit-erase-video-subtitle-standard,volc-mediakit-erase-video-subtitle-pro',
+    },
+  },
 }
 
 /**

@@ -14,6 +14,7 @@ const (
 	EndpointTypeOpenAIVideo           EndpointType = "openai-video"
 	EndpointTypeVolcImage             EndpointType = "volc-image"
 	EndpointTypeVolcVideo             EndpointType = "volc-video"
+	EndpointTypeMediaKitVideo         EndpointType = "mediakit-video"
 	//EndpointTypeMidjourney     EndpointType = "midjourney-proxy"
 	//EndpointTypeSuno           EndpointType = "suno-proxy"
 	//EndpointTypeKling          EndpointType = "kling"

@@ -674,6 +674,13 @@ const EditChannelModal = (props) => {
             base_url: 'https://ark.cn-beijing.volces.com',
           }));
           break;
+        case 59:
+          localModels = getChannelModels(value);
+          setInputs((prevInputs) => ({
+            ...prevInputs,
+            base_url: 'https://mediakit.cn-beijing.volces.com',
+          }));
+          break;
         default:
           localModels = getChannelModels(value);
           break;
@@ -967,11 +974,14 @@ const EditChannelModal = (props) => {
       }
 
       if (
-        data.type === 45 &&
+        (data.type === 45 || data.type === 59) &&
         (!data.base_url ||
           (typeof data.base_url === 'string' && data.base_url.trim() === ''))
       ) {
-        data.base_url = 'https://ark.cn-beijing.volces.com';
+        data.base_url =
+          data.type === 59
+            ? 'https://mediakit.cn-beijing.volces.com'
+            : 'https://ark.cn-beijing.volces.com';
       }
 
       initialBaseUrlRef.current = data.base_url || '';

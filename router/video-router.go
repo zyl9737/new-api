@@ -43,6 +43,30 @@ func SetVideoRouter(router *gin.Engine) {
 		klingV1Router.GET("/videos/image2video/:task_id", controller.RelayTaskFetch)
 	}
 
+	mediaKitRouter := router.Group("/api/v1")
+	mediaKitRouter.Use(middleware.RouteTag("relay"))
+	mediaKitRouter.Use(middleware.TokenAuth(), middleware.Distribute())
+	{
+		mediaKitRouter.POST("/tools/enhance-video", func(c *gin.Context) {
+			c.Set("relay_format", string(types.RelayFormatMediaKit))
+			controller.RelayTask(c)
+		})
+		mediaKitRouter.POST("/tools/erase-video-subtitle", func(c *gin.Context) {
+			c.Set("relay_format", string(types.RelayFormatMediaKit))
+			controller.RelayTask(c)
+		})
+		mediaKitRouter.POST("/tools/erase-video-subtitle-pro", func(c *gin.Context) {
+			c.Set("relay_format", string(types.RelayFormatMediaKit))
+			controller.RelayTask(c)
+		})
+		mediaKitRouter.GET("/tasks/:id", func(c *gin.Context) {
+			c.Set("relay_format", string(types.RelayFormatMediaKit))
+			c.Set("task_id", c.Param("id"))
+			c.Set("relay_mode", relayconstant.RelayModeVideoFetchByID)
+			controller.RelayTaskFetch(c)
+		})
+	}
+
 	// Volc Ark compatible task routes — preserves unknown Volc fields without
 	// schema normalization. Body bytes flow byte-identical to upstream EXCEPT
 	// when model mapping (info.IsModelMapped) or ParamOverride is configured;

@@ -202,6 +202,20 @@ func taskSettleLogTokens(taskResult *relaycommon.TaskInfo, effectiveTotalTokens 
 	return 0, effectiveTotalTokens
 }
 
+func taskLogUseTimeSeconds(task *model.Task) int {
+	if task == nil || task.FinishTime <= 0 {
+		return 0
+	}
+	startTime := task.SubmitTime
+	if startTime <= 0 {
+		startTime = task.StartTime
+	}
+	if startTime <= 0 || task.FinishTime < startTime {
+		return 0
+	}
+	return int(task.FinishTime - startTime)
+}
+
 // RefundTaskQuota 统一的任务失败退款逻辑。
 // 当异步任务失败时，将预扣的 quota 退还给用户（支持钱包和订阅），并退还令牌额度。
 func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
@@ -233,16 +247,17 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 	other["task_id"] = task.TaskID
 	other["reason"] = reason
 	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
-		UserId:     task.UserId,
-		LogType:    model.LogTypeRefund,
-		Content:    "",
-		ChannelId:  task.ChannelId,
-		ModelName:  taskModelName(task),
-		Quota:      quota,
-		QuotaDelta: -quota,
-		TokenId:    task.PrivateData.TokenId,
-		Group:      task.Group,
-		Other:      other,
+		UserId:         task.UserId,
+		LogType:        model.LogTypeRefund,
+		Content:        "",
+		ChannelId:      task.ChannelId,
+		ModelName:      taskModelName(task),
+		Quota:          quota,
+		UseTimeSeconds: taskLogUseTimeSeconds(task),
+		QuotaDelta:     -quota,
+		TokenId:        task.PrivateData.TokenId,
+		Group:          task.Group,
+		Other:          other,
 	})
 	if !taskIsSubscription(task) {
 		if err := model.InvalidateUserCache(task.UserId); err != nil {
@@ -411,6 +426,7 @@ func recalculateTaskQuotaWithTokenUsage(ctx context.Context, task *model.Task, a
 		Quota:            logQuota,
 		PromptTokens:     promptTokens,
 		CompletionTokens: completionTokens,
+		UseTimeSeconds:   taskLogUseTimeSeconds(task),
 		QuotaDelta:       quotaDelta,
 		TokenId:          task.PrivateData.TokenId,
 		Group:            task.Group,

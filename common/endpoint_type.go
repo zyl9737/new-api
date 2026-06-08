@@ -32,6 +32,8 @@ func GetEndpointTypesByChannelType(channelType int, modelName string) []constant
 			return []constant.EndpointType{constant.EndpointTypeVolcImage}
 		}
 		return []constant.EndpointType{constant.EndpointTypeVolcVideo}
+	case constant.ChannelTypeVolcMediaKit:
+		return []constant.EndpointType{constant.EndpointTypeMediaKitVideo}
 	case constant.ChannelTypeOpenRouter: // OpenRouter 只支持 OpenAI 端点
 		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
 	case constant.ChannelTypeXai:

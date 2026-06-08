@@ -161,6 +161,11 @@ func testChannel(channel *model.Channel, testUserID int, testModel string, endpo
 				localErr: fmt.Errorf("VolcAdapter seedance (task) models cannot be tested via channel test; use a seedream (image) model to verify the channel"),
 			}
 		}
+		if channel.Type == constant.ChannelTypeVolcMediaKit {
+			return testResult{
+				localErr: fmt.Errorf("VolcMediaKit task models cannot be tested via channel test; submit a real /api/v1/tools/* request to verify the channel"),
+			}
+		}
 
 		// responses-only models
 		if strings.Contains(strings.ToLower(testModel), "codex") {

@@ -41,6 +41,13 @@ func TestGetEndpointTypesByChannelType(t *testing.T) {
 			wantFirst:   constant.EndpointTypeVolcVideo,
 			exactSlice:  []constant.EndpointType{constant.EndpointTypeVolcVideo},
 		},
+		{
+			name:        "VolcMediaKit + enhance model → mediakit-video only",
+			channelType: constant.ChannelTypeVolcMediaKit,
+			modelName:   "volc-mediakit-enhance-video-standard",
+			wantFirst:   constant.EndpointTypeMediaKitVideo,
+			exactSlice:  []constant.EndpointType{constant.EndpointTypeMediaKitVideo},
+		},
 		// --- Regression: VolcEngine (45) with seedream must NOT include volc-image ---
 		{
 			name:        "VolcEngine (45) + seedream → no volc-image (only ch 58 gets volc-* types)",

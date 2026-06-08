@@ -111,12 +111,13 @@ type TaskPrivateData struct {
 
 // TaskBillingContext 记录任务提交时的计费参数，以便轮询阶段可以重新计算额度。
 type TaskBillingContext struct {
-	ModelPrice      float64            `json:"model_price,omitempty"`       // 模型单价
-	GroupRatio      float64            `json:"group_ratio,omitempty"`       // 分组倍率
-	ModelRatio      float64            `json:"model_ratio,omitempty"`       // 模型倍率
-	OtherRatios     map[string]float64 `json:"other_ratios,omitempty"`      // 附加倍率（时长、分辨率等）
-	OriginModelName string             `json:"origin_model_name,omitempty"` // 模型名称，必须为OriginModelName
-	PerCallBilling  bool               `json:"per_call_billing,omitempty"`  // 按次计费：跳过轮询阶段的差额结算
+	ModelPrice       float64            `json:"model_price,omitempty"`       // 模型单价
+	GroupRatio       float64            `json:"group_ratio,omitempty"`       // 分组倍率
+	ModelRatio       float64            `json:"model_ratio,omitempty"`       // 模型倍率
+	OtherRatios      map[string]float64 `json:"other_ratios,omitempty"`      // 附加倍率（时长、分辨率等）
+	OriginModelName  string             `json:"origin_model_name,omitempty"` // 模型名称，必须为OriginModelName
+	PerCallBilling   bool               `json:"per_call_billing,omitempty"`  // 按次计费：跳过轮询阶段的差额结算
+	SettlementReason string             `json:"settlement_reason,omitempty"` // adaptor 结算时写入更具体的日志原因
 
 	// TieredSnapshot captures the frozen billing expression state for tiered_expr
 	// models. Present only when BillingMode == tiered_expr at submit time.
@@ -131,6 +132,12 @@ type TaskBillingContext struct {
 	// the param() body even when callback deployments never populate task.Data
 	// with a fetch response.
 	TieredVolcFlags *TieredVolcFlags `json:"tiered_volc_flags,omitempty"`
+
+	// MediaKit task pricing uses a per-minute base price multiplied by output
+	// duration and tool-specific coefficients (version / resolution / fps).
+	// These fields snapshot submit-time hints so settlement can still price
+	// correctly when the upstream omits a field from the final task payload.
+	MediaKit *TaskMediaKitParams `json:"mediakit,omitempty"`
 }
 
 // TieredVolcFlags stores Volc-specific billing inputs captured at task
@@ -150,6 +157,14 @@ type TieredVolcFlags struct {
 	Resolution  string `json:"resolution,omitempty"`
 	Duration    int    `json:"duration,omitempty"`
 	ServiceTier string `json:"service_tier,omitempty"`
+}
+
+type TaskMediaKitParams struct {
+	Tool            string  `json:"tool,omitempty"`
+	ToolVersion     string  `json:"tool_version,omitempty"`
+	Resolution      string  `json:"resolution,omitempty"`
+	ResolutionLimit int     `json:"resolution_limit,omitempty"`
+	FPS             float64 `json:"fps,omitempty"`
 }
 
 // GetUpstreamTaskID 获取上游真实 task ID（用于与 provider 通信）

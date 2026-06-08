@@ -155,7 +155,9 @@ type GroupSectionProps = {
 
 function GroupSection(props: GroupSectionProps) {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(() =>
+    props.items.some((item) => !item.targetGroup.trim())
+  )
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -184,7 +186,10 @@ function GroupSection(props: GroupSectionProps) {
               variant='ghost'
               size='sm'
               className='h-7 w-7 p-0'
-              onClick={() => props.onAdd(props.groupName)}
+              onClick={() => {
+                setOpen(true)
+                props.onAdd(props.groupName)
+              }}
             >
               <Plus className='h-4 w-4' />
             </Button>
@@ -486,6 +491,7 @@ export function GroupSpecialUsableRulesEditor(
               variant='outline'
               size='sm'
               onClick={addNewGroup}
+              disabled={!newGroupName.trim()}
             >
               <Plus className='mr-1 h-4 w-4' />
               {t('Add group rules')}

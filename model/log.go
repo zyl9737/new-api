@@ -282,6 +282,7 @@ type RecordTaskBillingLogParams struct {
 	Quota            int
 	PromptTokens     int
 	CompletionTokens int
+	UseTimeSeconds   int
 	QuotaDelta       int // signed delta for quota_data: positive=charge, negative=refund
 	TokenId          int
 	Group            string
@@ -310,6 +311,7 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 		Quota:            params.Quota,
 		PromptTokens:     params.PromptTokens,
 		CompletionTokens: params.CompletionTokens,
+		UseTime:          params.UseTimeSeconds,
 		ChannelId:        params.ChannelId,
 		TokenId:          params.TokenId,
 		Group:            params.Group,
