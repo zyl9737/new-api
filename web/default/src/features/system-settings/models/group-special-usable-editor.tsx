@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
@@ -51,7 +51,11 @@ const sectionCardClassName =
   'relative shadow-sm ring-0 before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:border before:border-border/90'
 const sectionHeaderClassName = 'border-b bg-muted/20'
 
-type OpType = typeof OP_ADD | typeof OP_REMOVE | typeof OP_APPEND | typeof OP_ONLY
+type OpType =
+  | typeof OP_ADD
+  | typeof OP_REMOVE
+  | typeof OP_APPEND
+  | typeof OP_ONLY
 
 type Rule = {
   _id: string
@@ -67,7 +71,8 @@ function uid() {
 }
 
 function parsePrefix(rawKey: string): { op: OpType; groupName: string } {
-  if (rawKey.startsWith('=:')) return { op: OP_ONLY, groupName: rawKey.slice(2) }
+  if (rawKey.startsWith('=:'))
+    return { op: OP_ONLY, groupName: rawKey.slice(2) }
   if (rawKey.startsWith('+:')) return { op: OP_ADD, groupName: rawKey.slice(2) }
   if (rawKey.startsWith('-:'))
     return { op: OP_REMOVE, groupName: rawKey.slice(2) }
@@ -126,15 +131,13 @@ function serializeRules(rules: Rule[]): string {
     : JSON.stringify(nested, null, 2)
 }
 
-const OP_BADGE_MAP: Record<
-  OpType,
-  { variant: StatusVariant; label: string }
-> = {
-  [OP_ADD]: { variant: 'info', label: 'Add (+:)' },
-  [OP_REMOVE]: { variant: 'danger', label: 'Remove (-:)' },
-  [OP_APPEND]: { variant: 'neutral', label: 'Append' },
-  [OP_ONLY]: { variant: 'warning', label: 'Only (=:)' },
-}
+const OP_BADGE_MAP: Record<OpType, { variant: StatusVariant; label: string }> =
+  {
+    [OP_ADD]: { variant: 'info', label: 'Add (+:)' },
+    [OP_REMOVE]: { variant: 'danger', label: 'Remove (-:)' },
+    [OP_APPEND]: { variant: 'neutral', label: 'Append' },
+    [OP_ONLY]: { variant: 'warning', label: 'Only (=:)' },
+  }
 
 type GroupSpecialUsableRulesEditorProps = {
   value: string
@@ -177,6 +180,7 @@ function GroupSection(props: GroupSectionProps) {
           </div>
           <div className='flex items-center gap-1'>
             <Button
+              type='button'
               variant='ghost'
               size='sm'
               className='h-7 w-7 p-0'
@@ -185,6 +189,7 @@ function GroupSection(props: GroupSectionProps) {
               <Plus className='h-4 w-4' />
             </Button>
             <Button
+              type='button'
               variant='ghost'
               size='sm'
               className='text-destructive h-7 w-7 p-0'
@@ -311,6 +316,7 @@ function GroupSection(props: GroupSectionProps) {
                   </div>
                 )}
                 <Button
+                  type='button'
                   variant='ghost'
                   size='sm'
                   className='text-destructive h-8 w-8 p-0'
@@ -332,22 +338,31 @@ export function GroupSpecialUsableRulesEditor(
 ) {
   const { t } = useTranslation()
   const [newGroupName, setNewGroupName] = useState('')
-  const rules = useMemo(
-    () => flattenRules(safeParseJson(props.value)),
-    [props.value]
+  const [rules, setRules] = useState<Rule[]>(() =>
+    flattenRules(safeParseJson(props.value))
   )
 
   const { onChange } = props
-  const emitChange = useCallback(
+  const commitRules = useCallback(
     (newRules: Rule[]) => {
+      setRules(newRules)
       onChange(serializeRules(newRules))
     },
     [onChange]
   )
 
+  useEffect(() => {
+    const nextRules = flattenRules(safeParseJson(props.value))
+    const nextSerialized = serializeRules(nextRules)
+    setRules((currentRules) => {
+      const currentSerialized = serializeRules(currentRules)
+      return currentSerialized === nextSerialized ? currentRules : nextRules
+    })
+  }, [props.value])
+
   const updateRule = useCallback(
     (id: string, field: keyof Rule, val: string) => {
-      emitChange(
+      commitRules(
         rules.map((r) => {
           if (r._id !== id) return r
           const updated = { ...r, [field]: val }
@@ -360,23 +375,23 @@ export function GroupSpecialUsableRulesEditor(
         })
       )
     },
-    [rules, emitChange]
+    [rules, commitRules]
   )
 
   const removeRule = useCallback(
-    (id: string) => emitChange(rules.filter((r) => r._id !== id)),
-    [rules, emitChange]
+    (id: string) => commitRules(rules.filter((r) => r._id !== id)),
+    [rules, commitRules]
   )
 
   const removeGroup = useCallback(
     (groupName: string) =>
-      emitChange(rules.filter((r) => r.userGroup !== groupName)),
-    [rules, emitChange]
+      commitRules(rules.filter((r) => r.userGroup !== groupName)),
+    [rules, commitRules]
   )
 
   const addRuleToGroup = useCallback(
     (groupName: string) => {
-      emitChange([
+      commitRules([
         ...rules,
         {
           _id: uid(),
@@ -387,13 +402,13 @@ export function GroupSpecialUsableRulesEditor(
         },
       ])
     },
-    [rules, emitChange]
+    [rules, commitRules]
   )
 
   const addNewGroup = useCallback(() => {
     const name = newGroupName.trim()
     if (!name) return
-    emitChange([
+    commitRules([
       ...rules,
       {
         _id: uid(),
@@ -404,7 +419,7 @@ export function GroupSpecialUsableRulesEditor(
       },
     ])
     setNewGroupName('')
-  }, [rules, emitChange, newGroupName])
+  }, [rules, commitRules, newGroupName])
 
   const grouped = useMemo(() => {
     const map: Record<string, Rule[]> = {}
@@ -433,7 +448,7 @@ export function GroupSpecialUsableRulesEditor(
       <CardContent>
         <div className='space-y-3'>
           <p className='text-muted-foreground text-sm'>
-            {t('A user\'s own group always stays selectable.')}
+            {t("A user's own group always stays selectable.")}
           </p>
           {grouped.length === 0 ? (
             <p className='text-muted-foreground py-4 text-center text-sm'>
@@ -466,7 +481,12 @@ export function GroupSpecialUsableRulesEditor(
                 }
               }}
             />
-            <Button variant='outline' size='sm' onClick={addNewGroup}>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={addNewGroup}
+            >
               <Plus className='mr-1 h-4 w-4' />
               {t('Add group rules')}
             </Button>
